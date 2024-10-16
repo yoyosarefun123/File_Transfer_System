@@ -1,4 +1,4 @@
-#pragma one
+#pragma once
 
 #include <cstdint>
 #include <vector>
@@ -19,14 +19,14 @@ public:
 	//void makeBytes(Register payload);
 };
 
-class SendKeyPayload : public Payload { // code 826 - send public key
-private:
-	std::vector<uint8_t> name;
-	uint8_t publicKey[160];
-public: 
-	SendKeyPayload(const std::vector<uint8_t> name, 
-					uint8_t publicKey[160]);
-};
+//class SendKeyPayload : public Payload { // code 826 - send public key
+//private:
+//	std::vector<uint8_t> name;
+//	uint8_t publicKey[160];
+//public: 
+//	SendKeyPayload(const std::vector<uint8_t> name, 
+//					uint8_t publicKey[160]);
+//};
 
 class LoginPayload : public Payload { // code 827 - login
 private:
@@ -46,12 +46,13 @@ private:
 	std::vector<uint8_t> messageContent;
 
 public:
-	SendFilePayload(uint32_t contentSize, 
-					uint32_t originalFileSize, 
-					uint16_t packetNumber, 
-					uint16_t totalPackets, 
-					const std::vector<uint8_t> &fileName, 
-					const std::vector<uint8_t> &messageContent);
+	SendFilePayload(
+		uint32_t contentSize, 
+		uint32_t originalFileSize, 
+		uint16_t packetNumber, 
+		uint16_t totalPackets, 
+		const std::vector<uint8_t> &fileName, 
+		const std::vector<uint8_t> &messageContent);
 };
 
 class ChecksumCorrectPayload : public Payload { // code 900 - CRC success
