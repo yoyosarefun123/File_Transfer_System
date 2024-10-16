@@ -129,13 +129,15 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Client.cpp" />
-    <ClCompile Include="PacketManager.cpp" />
+    <ClCompile Include="RequestManager.cpp" />
     <ClCompile Include="Payload.cpp" />
+    <ClCompile Include="RSAEncryption.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Client.h" />
-    <ClInclude Include="PacketManager.h" />
+    <ClInclude Include="RequestManager.h" />
     <ClInclude Include="Payload.h" />
+    <ClInclude Include="RSAEncryption.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

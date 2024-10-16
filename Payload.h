@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <vector>
+#include <string>
 
 using std::uint8_t, std::uint16_t, std::uint32_t;
 
@@ -19,14 +20,14 @@ public:
 	//void makeBytes(Register payload);
 };
 
-//class SendKeyPayload : public Payload { // code 826 - send public key
-//private:
-//	std::vector<uint8_t> name;
-//	uint8_t publicKey[160];
-//public: 
-//	SendKeyPayload(const std::vector<uint8_t> name, 
-//					uint8_t publicKey[160]);
-//};
+class SendKeyPayload : public Payload { // code 826 - send public key
+private:
+	std::vector<uint8_t> name;
+	std::string publicKey;
+public: 
+	SendKeyPayload(const std::vector<uint8_t> &name, 
+					std::string publicKey);
+};
 
 class LoginPayload : public Payload { // code 827 - login
 private:

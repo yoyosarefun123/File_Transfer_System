@@ -1,7 +1,8 @@
-#include "PacketManager.h"
-#include <iostream>
+#include "RequestManager.h"
+#include <stdexcept>
 
-#define NAME_SIZE 255
+constexpr int NAME_SIZE = 255;
+constexpr int KEY_SIZE = 160;
 
 Packet::Packet(unique_ptr<Header> header, unique_ptr<Payload> payload)
 	: header(std::move(header)), payload(std::move(payload)) {}
@@ -15,13 +16,29 @@ unique_ptr<Packet> registrationPacket(
 	uint8_t version,
 	uint16_t code)
 {
-	if (name.size() != NAME_SIZE) {
+	if (name.size() != NAME_SIZE) 
 		throw std::invalid_argument("Error: Invalid name size in creation of registrationPacket");
-	}
 
 	uint32_t payloadSize = name.size();
 	return std::make_unique<Packet>(std::make_unique<Header>(clientID, version, code, payloadSize), 
 									std::make_unique<RegisterPayload>(name));
+}
+
+unique_ptr<Packet> sendKeyPacket(
+	vector<uint8_t>& clientID,
+	const vector<uint8_t>& name,
+	string publicKey,
+	uint8_t version = CLIENT_VERSION,
+	uint16_t code = SEND_KEY_CODE)
+{
+	if (name.size() != NAME_SIZE)
+		throw std::invalid_argument("Error: Invalid name size in creation of sendKeyPacket");
+	if (publicKey.size() != KEY_SIZE)
+		throw std::invalid_argument("Error: Invalid public key size in creation of sendKeyPacket");
+
+	uint32_t payloadSize = name.size() + publicKey.size();
+	return std::make_unique<Packet>(std::make_unique<Header>(clientID, version, code, payloadSize),
+									std::make_unique<Payload>(name, publicKey));
 }
 
 unique_ptr<Packet> loginPacket(

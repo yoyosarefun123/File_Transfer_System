@@ -5,7 +5,7 @@
 #include "Payload.h"
 #include <memory>
 
-#define CLIENT_VERSION 3
+constexpr int CLIENT_VERSION = 3;
 
 enum CODES {
 	REGISTER_CODE = 825,
@@ -18,7 +18,7 @@ enum CODES {
 	CHECKSUM_SHUTDOWN_CODE = 902
 };
 
-using std::uint8_t, std::uint16_t, std::uint32_t, std::vector, std::unique_ptr;
+using std::uint8_t, std::uint16_t, std::uint32_t, std::vector, std::unique_ptr, std::string;
 
 class Header {
 private:
@@ -46,11 +46,12 @@ unique_ptr<Packet> registrationPacket(
 	uint8_t version = CLIENT_VERSION,
 	uint16_t code = REGISTER_CODE);
 
-//unique_ptr<Packet> sendKeyPacket(
-//	vector<uint8_t>& clientID,  
-//	const vector<uint8_t>& name,
-//	uint8_t version = CLIENT_VERSION,
-//	uint16_t code = SEND_KEY_CODE);
+unique_ptr<Packet> sendKeyPacket(
+	vector<uint8_t>& clientID,
+	const vector<uint8_t>& name,
+	string publicKey,
+	uint8_t version = CLIENT_VERSION,
+	uint16_t code = SEND_KEY_CODE);
 
 unique_ptr<Packet> loginPacket(
 	vector<uint8_t>& clientID, 
