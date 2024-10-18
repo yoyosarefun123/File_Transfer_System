@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <vector>
 #include <stdexcept>
+#include "utils.h"
 
 constexpr int NAME_SIZE = 255;
 constexpr int KEY_SIZE = 160;
@@ -15,7 +16,7 @@ RegisterPayload::RegisterPayload(const string &name)
 		throw std::invalid_argument("Error: Invalid name size in creation of RegisterPayload");
 }
 
-vector<uint8_t> RegisterPayload::serializePayload() {
+vector<uint8_t> RegisterPayload::serializePayload() const {
 	return serializeString(this->name);
 }
 
@@ -28,7 +29,7 @@ SendKeyPayload::SendKeyPayload(const string &name, const string &publicKey)
 		throw std::invalid_argument("Error: Invalid rsa key size in creation of SendKeyPayload");
 }
 
-vector<uint8_t> SendKeyPayload::serializePayload() {
+vector<uint8_t> SendKeyPayload::serializePayload() const {
 	vector<uint8_t> serializedData;
 
 	vector<uint8_t> serializedName = serializeString(this->name);
@@ -47,7 +48,7 @@ LoginPayload::LoginPayload(const string &name)
 		throw std::invalid_argument("Error: Invalid name size in creation of LoginPayload");
 }
 
-vector<uint8_t> LoginPayload::serializePayload() {
+vector<uint8_t> LoginPayload::serializePayload() const {
 	return serializeString(this->name);
 }
 
@@ -64,7 +65,7 @@ SendFilePayload::SendFilePayload(
 		throw std::invalid_argument("Error: Invalid file name size in creation of SendFilePayload");
 }
 
-vector<uint8_t> SendFilePayload::serializePayload() {
+vector<uint8_t> SendFilePayload::serializePayload() const {
 	vector<uint8_t> serializedData;
 	
 	vector<uint8_t> serializedContentSize = serializeInt(this->contentSize);
@@ -95,7 +96,7 @@ ChecksumCorrectPayload::ChecksumCorrectPayload(const string& name)
 		throw std::invalid_argument("Error: Invalid name size in creation of ChecksumCorrectPayload");
 }
 
-vector<uint8_t> ChecksumCorrectPayload::serializePayload() {
+vector<uint8_t> ChecksumCorrectPayload::serializePayload() const {
 	return serializeString(this->name);
 }
 
@@ -106,7 +107,7 @@ ChecksumFailedPayload::ChecksumFailedPayload(const string& name)
 		throw std::invalid_argument("Error: Invalid name size in creation of ChecksumFailedPayload");
 }
 
-vector<uint8_t> ChecksumFailedPayload::serializePayload() {
+vector<uint8_t> ChecksumFailedPayload::serializePayload() const {
 	return serializeString(this->name);
 }
 
@@ -117,6 +118,6 @@ ChecksumShutDownPayload::ChecksumShutDownPayload(const string& name)
 		throw std::invalid_argument("Error: Invalid name size in creation of ChecksumShutDownPayload");
 }
 
-vector<uint8_t> ChecksumShutDownPayload::serializePayload() {
+vector<uint8_t> ChecksumShutDownPayload::serializePayload() const {
 	return serializeString(this->name);
 }

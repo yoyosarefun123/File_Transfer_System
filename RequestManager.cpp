@@ -1,5 +1,6 @@
 #include "RequestManager.h"
 #include <stdexcept>
+#include "utils.h"
 
 constexpr int NAME_SIZE = 255;
 constexpr int KEY_SIZE = 160;
@@ -7,8 +8,26 @@ constexpr int KEY_SIZE = 160;
 Packet::Packet(unique_ptr<Header> header, unique_ptr<Payload> payload)
 	: header(std::move(header)), payload(std::move(payload)) {}
 
-Header::Header(const vector<uint8_t>& clientID, uint16_t code, uint32_t payloadSize, uint8_t version) 
-	: clientID(clientID), version(version), code(code), payloadSize(payloadSize) {}
+Header::Header(const string& clientID, uint16_t code, uint32_t payloadSize, uint8_t version) 
+	: clientID(clientID), code(code), payloadSize(payloadSize), version(version) {}
+
+vector<uint8_t> Header::serializeHeader() const {
+	vector<uint8_t> serializedData;
+
+	vector<uint8_t> serializedClientID = serializeString(this->clientID);
+	serializedData.insert(serializedData.end(), serializedClientID.begin(), serializedClientID.end());
+
+	vector<uint8_t> serializedVersion = serializeByte(this->version);
+	serializedData.insert(serializedData.end(), serializedVersion.begin(), serializedVersion.end());
+
+	vector<uint8_t> serializedCode = serializeShort(code);
+	serializedData.insert(serializedData.end(), serializedCode.begin(), serializedCode.end());
+	
+	vector<uint8_t> serializedPayloadSize = serializeInt(payloadSize);
+	serializedData.insert(serializedData.end(), serializedPayloadSize.begin(), serializedPayloadSize.end());
+
+	return serializedData;
+}
 
 unique_ptr<Packet> registrationPacket(
 	vector<uint8_t>& clientID,

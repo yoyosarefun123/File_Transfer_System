@@ -22,13 +22,14 @@ using std::uint8_t, std::uint16_t, std::uint32_t, std::vector, std::unique_ptr, 
 
 class Header {
 private:
-	vector<uint8_t> clientID;
+	string clientID;
 	uint8_t version;
 	uint16_t code;
 	uint32_t payloadSize;
 
 public:
-	Header(const vector<uint8_t>& clientID, uint16_t code, uint32_t payloadSize, uint8_t version = CLIENT_VERSION);
+	Header(const string& clientID, uint16_t code, uint32_t payloadSize, uint8_t version = CLIENT_VERSION);
+	vector<uint8_t> serializeHeader() const;
 };
 
 class Packet {
