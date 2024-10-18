@@ -132,12 +132,14 @@
     <ClCompile Include="RequestManager.cpp" />
     <ClCompile Include="Payload.cpp" />
     <ClCompile Include="RSAEncryption.cpp" />
+    <ClCompile Include="utils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Client.h" />
     <ClInclude Include="RequestManager.h" />
     <ClInclude Include="Payload.h" />
     <ClInclude Include="RSAEncryption.h" />
+    <ClInclude Include="utils.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

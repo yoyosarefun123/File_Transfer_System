@@ -3,38 +3,41 @@
 #include <cstdint>
 #include <vector>
 #include <string>
+#include "utils.h"
 
-using std::uint8_t, std::uint16_t, std::uint32_t;
+using std::uint8_t, std::uint16_t, std::uint32_t, std::string, std::vector;
 
 class Payload {
 public:
-	//virtual void makeBytes(Payload payload) const;
+	virtual vector<uint8_t> serializePayload() = 0;
 };
 
 class RegisterPayload : public Payload { // code 825 - registration
 private:
-	std::vector<uint8_t> name;
+	string name;
 
 public:
-	RegisterPayload(const std::vector<uint8_t>& name);
-	//void makeBytes(Register payload);
+	RegisterPayload(const string &name);
+	vector<uint8_t> serializePayload() override;
 };
 
 class SendKeyPayload : public Payload { // code 826 - send public key
 private:
-	std::vector<uint8_t> name;
-	std::string publicKey;
+	string name;
+	string publicKey;
+
 public: 
-	SendKeyPayload(const std::vector<uint8_t> &name, 
-					std::string publicKey);
+	SendKeyPayload(const string &name, const string &publicKey);
+	vector<uint8_t> serializePayload() override;
 };
 
 class LoginPayload : public Payload { // code 827 - login
 private:
-	std::vector<uint8_t> name;
+	string name;
 
 public: 
-	LoginPayload(const std::vector<uint8_t> &name);
+	LoginPayload(const string &name);
+	vector<uint8_t> serializePayload() override; 
 };
 
 class SendFilePayload : public Payload { // code 828 - send file
@@ -43,8 +46,8 @@ private:
 	uint32_t originalFileSize;
 	uint16_t packetNumber;
 	uint16_t totalPackets;
-	std::vector<uint8_t> fileName;
-	std::vector<uint8_t> messageContent;
+	string fileName;
+	string messageContent;
 
 public:
 	SendFilePayload(
@@ -52,30 +55,34 @@ public:
 		uint32_t originalFileSize, 
 		uint16_t packetNumber, 
 		uint16_t totalPackets, 
-		const std::vector<uint8_t> &fileName, 
-		const std::vector<uint8_t> &messageContent);
+		const string &fileName, 
+		const string &messageContent);
+	vector<uint8_t> serializePayload() override;
 };
 
 class ChecksumCorrectPayload : public Payload { // code 900 - CRC success
 private:
-	std::vector<uint8_t> name;
+	string name;
 
 public: 
-	ChecksumCorrectPayload(const std::vector<uint8_t>& name);
+	ChecksumCorrectPayload(const string &name);
+	vector<uint8_t> serializePayload() override;
 };
 
 class ChecksumFailedPayload : public Payload { // code 901 - CRC failed, sending again
 private:
-	std::vector<uint8_t> name;
+	string name;
 
 public:
-	ChecksumFailedPayload(const std::vector<uint8_t>& name);
+	ChecksumFailedPayload(const string &name);
+	vector<uint8_t> serializePayload() override;
 };
 
 class ChecksumShutDownPayload : public Payload { // code 902 - CRC failed 4th time, shutting  down
 private:
-	std::vector<uint8_t> name;
+	string name;
 
 public:
-	ChecksumShutDownPayload(const std::vector<uint8_t>& name);
+	ChecksumShutDownPayload(const string &name);
+	vector<uint8_t> serializePayload() override;
 };
