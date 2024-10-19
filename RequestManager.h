@@ -39,52 +39,55 @@ private:
 
 public:
 	Packet(unique_ptr<Header> header, unique_ptr<Payload> payload);
+	unique_ptr<Header> getHeader();
+	unique_ptr<Payload> getPayload();
 };
 
 unique_ptr<Packet> registrationPacket(
-	vector<uint8_t> &clientID, 
-	const vector<uint8_t>& name,
+	const string &clientID, 
+	const string& name,
 	uint8_t version = CLIENT_VERSION,
 	uint16_t code = REGISTER_CODE);
 
 unique_ptr<Packet> sendKeyPacket(
-	vector<uint8_t>& clientID,
-	const vector<uint8_t>& name,
-	string publicKey,
+	const string& clientID,
+	const string& name,
+	const string& publicKey,
 	uint8_t version = CLIENT_VERSION,
 	uint16_t code = SEND_KEY_CODE);
 
 unique_ptr<Packet> loginPacket(
-	vector<uint8_t>& clientID, 
-	const vector<uint8_t>& name,
+	const string& clientID, 
+	const string& name,
 	uint8_t version = CLIENT_VERSION,
 	uint16_t code = LOGIN_CODE);
 
 unique_ptr<Packet> sendFilePacket(
-	vector<uint8_t>& clientID,  
+	const string& clientID,  
+	uint32_t contentSize,
 	uint32_t originalFileSize,
 	uint16_t packetNumber,
 	uint16_t totalPackets,
-	const vector<uint8_t>& fileName,
-	const vector<uint8_t>& messageContent,
+	const string& fileName,
+	const string& messageContent,
 	uint8_t version = CLIENT_VERSION,
 	uint16_t code = SEND_FILE_CODE);
 
 unique_ptr<Packet> checksumCorrectPacket(
-	vector<uint8_t>& clientID,  
-	const vector<uint8_t>& name,
+	const string& clientID,  
+	const string& name,
 	uint8_t version = CLIENT_VERSION,
 	uint16_t code = CHECKSUM_CORRECT_CODE);
 
 unique_ptr<Packet> checksumFailedPacket(
-	vector<uint8_t>& clientID, 
-	const vector<uint8_t>& name,
+	string& clientID, 
+	const string& name,
 	uint8_t version = CLIENT_VERSION,
 	uint16_t code = CHECKSUM_FAILED_CODE);
 
 unique_ptr<Packet> checksumShutDownPacket(
-	vector<uint8_t>& clientID, 
-	const vector<uint8_t>& name,
+	const string& clientID, 
+	const string& name,
 	uint8_t version = CLIENT_VERSION,
 	uint16_t code = CHECKSUM_SHUTDOWN_CODE);
 

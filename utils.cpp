@@ -1,7 +1,8 @@
 #include "utils.h"
 #include <string>
+#include <vector>
 
-using std::string;
+using std::string, std::vector;
 
 vector<uint8_t> serializeByte(uint8_t num)
 {
@@ -30,4 +31,17 @@ vector<uint8_t> serializeInt(uint32_t num)
 vector<uint8_t> serializeString(const string& input) {
 	vector<uint8_t> serialized(input.begin(), input.end());  // Copy each character as uint8_t
 	return serialized;
+}
+
+vector<vector<uint8_t>> splitIntoChunks(const vector<uint8_t>& data, size_t chunkSize) {
+	vector<vector<uint8_t>> chunks;
+	size_t totalSize = data.size();
+
+	for (size_t i = 0; i < totalSize; i += chunkSize) {
+		size_t end = std::min(i + chunkSize, totalSize);
+		vector<uint8_t> chunk(data.begin() + i, data.begin() + end);
+		chunks.push_back(chunk);
+	}
+
+	return chunks;
 }

@@ -74,9 +74,10 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_WIN32_WINNT=0x0601;WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>CRYPTOPP_DISABLE_UNCAUGHT_EXCEPTION;_WIN32_WINNT=0x0601;WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -128,17 +129,24 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="AESWrapper.cpp" />
+    <ClCompile Include="Base64Wrapper.cpp" />
     <ClCompile Include="Client.cpp" />
+    <ClCompile Include="Main.cpp" />
     <ClCompile Include="RequestManager.cpp" />
     <ClCompile Include="Payload.cpp" />
     <ClCompile Include="RSAEncryption.cpp" />
+    <ClCompile Include="RSAWrapper.cpp" />
     <ClCompile Include="utils.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="AESWrapper.h" />
+    <ClInclude Include="Base64Wrapper.h" />
     <ClInclude Include="Client.h" />
     <ClInclude Include="RequestManager.h" />
     <ClInclude Include="Payload.h" />
     <ClInclude Include="RSAEncryption.h" />
+    <ClInclude Include="RSAWrapper.h" />
     <ClInclude Include="utils.h" />
   </ItemGroup>
   <ItemGroup>
