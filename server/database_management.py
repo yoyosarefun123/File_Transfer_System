@@ -24,6 +24,13 @@ class ClientDBManager:
             ''')
             conn.commit()
 
+    def client_exists_by_name(self, client_name):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT 1 FROM clients WHERE client_name = ?', (client_name,))
+            result = cursor.fetchone()
+            return result is not None
+
     def add_or_update_client(self, client_id, client_name, public_key, aes_key):
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
