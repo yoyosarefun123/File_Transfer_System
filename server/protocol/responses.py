@@ -46,7 +46,7 @@ class RegisterFailPayload(Payload):
         return b''  # Empty payload
 
 # AES Send Key Payload: client ID (16 bytes), AES key (dynamic size)
-class AesSendKeyPayload(Payload):
+class AESSendKeyPayload(Payload):
     def __init__(self, client_id: bytes, aes_key: bytes):
         if len(client_id) != 16:
             raise ValueError("client_id must be 16 bytes")

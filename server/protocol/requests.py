@@ -28,29 +28,29 @@ class Header:
 
     @staticmethod
     def deserialize_header(data: bytes):
-        client_id = data[:NAME_SIZE].decode('utf-8').strip('\x00')
-        version, = struct.unpack('>B', data[NAME_SIZE:NAME_SIZE + 1])
-        code, = struct.unpack('>H', data[NAME_SIZE + 1:NAME_SIZE + 3])
-        payload_size, = struct.unpack('>I', data[NAME_SIZE + 3:NAME_SIZE + 7])
+        client_id = data[:CLIENT_ID_SIZE].decode('utf-8').strip('\x00')
+        version, = struct.unpack('>B', data[CLIENT_ID_SIZE:CLIENT_ID_SIZE + 1])
+        code, = struct.unpack('>H', data[CLIENT_ID_SIZE + 1:CLIENT_ID_SIZE + 3])
+        payload_size, = struct.unpack('>I', data[CLIENT_ID_SIZE + 3:CLIENT_ID_SIZE + 7])
 
         return Header(client_id, code, payload_size, version)
 
 
-class Packet:
-    def __init__(self, header, payload):
-        self._header = header
-        self._payload = payload
+# class Packet:
+#     def __init__(self, header, payload):
+#         self._header = header
+#         self._payload = payload
 
-    @staticmethod
-    def deserialize(data: bytes):
-        # Deserialize header (NAME_SIZE + 7 bytes)
-        header = Header.deserialize_header(data[:NAME_SIZE + 7])
+#     @staticmethod
+#     def deserialize(data: bytes):
+#         # Deserialize header (NAME_SIZE + 7 bytes)
+#         header = Header.deserialize_header(data[:NAME_SIZE + 7])
         
-        # Deserialize payload based on code
-        payload_data = data[NAME_SIZE + 7:]
-        payload = PayloadFactory.deserialize_payload(header.code, payload_data)
+#         # Deserialize payload based on code
+#         payload_data = data[NAME_SIZE + 7:]
+#         payload = PayloadFactory.deserialize_payload(header.code, payload_data)
 
-        return Packet(header, payload)
+#         return Packet(header, payload)
 
 
 class Payload(ABC):
