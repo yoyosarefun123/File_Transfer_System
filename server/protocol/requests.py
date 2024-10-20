@@ -19,7 +19,7 @@ class RequestCode(enum.Enum):
     CRC_FAIL_SHUT_DOWN = 902
 
 
-class Header:
+class RequestHeader:
     def __init__(self, client_id, code, payload_size, version):
         self._client_id = client_id
         self._code = code
@@ -33,7 +33,7 @@ class Header:
         code, = struct.unpack('>H', data[CLIENT_ID_SIZE + 1:CLIENT_ID_SIZE + 3])
         payload_size, = struct.unpack('>I', data[CLIENT_ID_SIZE + 3:CLIENT_ID_SIZE + 7])
 
-        return Header(client_id, code, payload_size, version)
+        return RequestHeader(client_id, code, payload_size, version)
 
 
 # class Packet:
@@ -53,13 +53,13 @@ class Header:
 #         return Packet(header, payload)
 
 
-class Payload(ABC):
+class RequestPayload(ABC):
     @abstractmethod
     def deserialize_payload(data: bytes):
         pass
 
 
-class RegisterPayload(Payload):
+class RegisterPayload(RequestPayload):
     def __init__(self, name):
         self._name = name
 
@@ -69,7 +69,7 @@ class RegisterPayload(Payload):
         return RegisterPayload(name)
 
 
-class SendKeyPayload(Payload):
+class SendKeyPayload(RequestPayload):
     def __init__(self, name, public_key):
         self._name = name
         self._public_key = public_key
@@ -81,7 +81,7 @@ class SendKeyPayload(Payload):
         return SendKeyPayload(name, public_key)
 
 
-class LoginPayload(Payload):
+class LoginPayload(RequestPayload):
     def __init__(self, name):
         self._name = name
 
@@ -91,7 +91,7 @@ class LoginPayload(Payload):
         return LoginPayload(name)
 
 
-class SendFilePayload(Payload):
+class SendFilePayload(RequestPayload):
     def __init__(self, content_size, original_file_size, packet_number, total_packets, file_name, message_content):
         self._content_size = content_size
         self._original_file_size = original_file_size
@@ -111,7 +111,7 @@ class SendFilePayload(Payload):
         return SendFilePayload(content_size, original_file_size, packet_number, total_packets, file_name, message_content)
 
 
-class ChecksumCorrectPayload(Payload):
+class ChecksumCorrectPayload(RequestPayload):
     def __init__(self, name):
         self._name = name
 
@@ -121,7 +121,7 @@ class ChecksumCorrectPayload(Payload):
         return ChecksumCorrectPayload(name)
 
 
-class ChecksumFailedPayload(Payload):
+class ChecksumFailedPayload(RequestPayload):
     def __init__(self, name):
         self.name = name
 
@@ -131,7 +131,7 @@ class ChecksumFailedPayload(Payload):
         return ChecksumFailedPayload(name)
 
 
-class ChecksumShutDownPayload(Payload):
+class ChecksumShutDownPayload(RequestPayload):
     def __init__(self, name):
         self.name = name
 
@@ -141,7 +141,7 @@ class ChecksumShutDownPayload(Payload):
         return ChecksumShutDownPayload(name)
 
 
-class PayloadFactory:
+class RequestPayloadFactory:
     @staticmethod
     def deserialize_payload(code, data):
         if code == RequestCode.REGISTER.value:  # Registration packet code

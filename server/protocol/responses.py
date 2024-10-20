@@ -14,7 +14,7 @@ class ResponseCode(enum.Enum):
     GENERAL_ERROR = 1607
 
 # Header class for packing the common header part
-class Header:
+class ResponseHeader:
     def __init__(self, version: int, response_code: ResponseCode, payload_size: int):
         self.version = version
         self.response_code = response_code
@@ -25,13 +25,13 @@ class Header:
         return struct.pack('>BHI', self.version, self.response_code.value, self.payload_size)
 
 # Abstract Payload class
-class Payload(ABC):
+class ResponsePayload(ABC):
     @abstractmethod
     def serialize(self):
         pass
 
 # Register OK Payload: client ID (16 bytes)
-class RegisterOkPayload(Payload):
+class RegisterOkPayload(ResponsePayload):
     def __init__(self, client_id: bytes):
         if len(client_id) != 16:
             raise ValueError("client_id must be 16 bytes")
@@ -41,12 +41,12 @@ class RegisterOkPayload(Payload):
         return self.client_id  # Client ID is already bytes (16 bytes)
 
 # Register Fail Payload: empty payload
-class RegisterFailPayload(Payload):
+class RegisterFailPayload(ResponsePayload):
     def serialize(self):
         return b''  # Empty payload
 
 # AES Send Key Payload: client ID (16 bytes), AES key (dynamic size)
-class AESSendKeyPayload(Payload):
+class AESSendKeyPayload(ResponsePayload):
     def __init__(self, client_id: bytes, aes_key: bytes):
         if len(client_id) != 16:
             raise ValueError("client_id must be 16 bytes")
@@ -57,7 +57,7 @@ class AESSendKeyPayload(Payload):
         return self.client_id + self.aes_key
 
 # File OK Payload: client ID (16 bytes), content size (4 bytes), file name (255 bytes), checksum (4 bytes)
-class FileOkPayload(Payload):
+class FileOkPayload(ResponsePayload):
     def __init__(self, client_id: bytes, content_size: int, file_name: str, checksum: int):
         if len(client_id) != 16:
             raise ValueError("client_id must be 16 bytes")
@@ -77,7 +77,7 @@ class FileOkPayload(Payload):
         )
 
 # Message OK Payload: client ID (16 bytes)
-class MessageOkPayload(Payload):
+class MessageOkPayload(ResponsePayload):
     def __init__(self, client_id: bytes):
         if len(client_id) != 16:
             raise ValueError("client_id must be 16 bytes")
@@ -87,7 +87,7 @@ class MessageOkPayload(Payload):
         return self.client_id
 
 # Login OK Send AES Payload: client ID (16 bytes), aes key (dynamic size)
-class LoginOkSendAesPayload(Payload):
+class LoginOkSendAesPayload(ResponsePayload):
     def __init__(self, client_id: bytes, aes_key: bytes):
         if len(client_id) != 16:
             raise ValueError("client_id must be 16 bytes")
@@ -98,7 +98,7 @@ class LoginOkSendAesPayload(Payload):
         return self.client_id + self.aes_key
 
 # Login Fail Payload: client ID (16 bytes)
-class LoginFailPayload(Payload):
+class LoginFailPayload(ResponsePayload):
     def __init__(self, client_id: bytes):
         if len(client_id) != 16:
             raise ValueError("client_id must be 16 bytes")
@@ -108,13 +108,13 @@ class LoginFailPayload(Payload):
         return self.client_id
 
 # General Error Payload: empty payload
-class GeneralErrorPayload(Payload):
+class GeneralErrorPayload(ResponsePayload):
     def serialize(self):
         return b''  # Empty payload
 
 # Packet class to combine header and payload
 class Packet:
-    def __init__(self, header: Header, payload: Payload):
+    def __init__(self, header: ResponseHeader, payload: ResponsePayload):
         self.header = header
         self.payload = payload
 
@@ -124,9 +124,9 @@ class Packet:
         return serialized_header + serialized_payload
 
 # Factory function to create packets
-def create_packet(response_code: ResponseCode, version: int, payload: Payload):
+def create_packet(response_code: ResponseCode, version: int, payload: ResponsePayload):
     payload_size = len(payload.serialize())
-    header = Header(version, response_code, payload_size)
+    header = ResponseHeader(version, response_code, payload_size)
     return Packet(header, payload)
 
 # Example Usage
