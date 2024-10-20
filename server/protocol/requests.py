@@ -3,10 +3,9 @@ import struct
 from abc import ABC, abstractmethod
 
 
-CLIENT_ID_SIZE = 255
+CLIENT_ID_SIZE = 16
 NAME_SIZE = 255
-FILE_NAME_SIZE = 255
-PUBLIC_KEY_SIZE = 160
+KEY_SIZE = 160
 
 
 class RequestCode(enum.Enum):
@@ -20,270 +19,145 @@ class RequestCode(enum.Enum):
     CRC_FAIL_SHUT_DOWN = 902
 
 
-import struct
+class Header:
+    def __init__(self, client_id, code, payload_size, version):
+        self._client_id = client_id
+        self._code = code
+        self._payload_size = payload_size
+        self._version = version
 
-class RequestPacket(ABC):
-    HEADER_FORMAT = "16sBHL"  # Client ID (16 bytes), client version (1 byte), request code (2 bytes), payload size (4 bytes)
-    HEADER_SIZE = struct.calcsize(HEADER_FORMAT)
+    @staticmethod
+    def deserialize_header(data: bytes):
+        client_id = data[:NAME_SIZE].decode('utf-8').strip('\x00')
+        version, = struct.unpack('>B', data[NAME_SIZE:NAME_SIZE + 1])
+        code, = struct.unpack('>H', data[NAME_SIZE + 1:NAME_SIZE + 3])
+        payload_size, = struct.unpack('>I', data[NAME_SIZE + 3:NAME_SIZE + 7])
 
-    def __init__(self, client_id, client_version, request_code, payload_size):
-        self.client_id = client_id
-        self.client_version = client_version
-        self.request_code = request_code
-        self.payload_size = payload_size
+        return Header(client_id, code, payload_size, version)
 
+
+class Packet:
+    def __init__(self, header, payload):
+        self._header = header
+        self._payload = payload
+
+    @staticmethod
+    def deserialize(data: bytes):
+        # Deserialize header (NAME_SIZE + 7 bytes)
+        header = Header.deserialize_header(data[:NAME_SIZE + 7])
+        
+        # Deserialize payload based on code
+        payload_data = data[NAME_SIZE + 7:]
+        payload = PayloadFactory.deserialize_payload(header.code, payload_data)
+
+        return Packet(header, payload)
+
+
+class Payload(ABC):
     @abstractmethod
-    def unpack_payload(self, data):
-        """Derived classes must implement this to unpack their specific payload."""
+    def deserialize_payload(data: bytes):
         pass
 
 
-    def unpack_header(self, data):
-        """Unpacks the common header."""
-        self.client_id, self.client_version, self.request_code, self.payload_size = struct.unpack(self.HEADER_FORMAT, data[:self.HEADER_SIZE])
-        self.client_id = self.client_id.rstrip(b'\x00').decode('utf-8')  # Remove null terminators and decode
+class RegisterPayload(Payload):
+    def __init__(self, name):
+        self._name = name
 
-
-    def unpack(self, data):
-        """Unpacks the full packet (header + payload)."""
-        self.unpack_header(data)
-        self.unpack_payload(data[self.HEADER_SIZE:])
-
-
-# Registration Request (825), Login Request (827), Checksum OK (900), Checksum Retry (901), Checksum Shut Down (902)
-class NameBasedRequest(RequestPacket):
-    def __init__(self, client_id, client_version, request_code, name):
-        self.name = name.ljust(255, '\x00')  # Pad name to 255 bytes
-        payload_size = 255
-        super().__init__(client_id, client_version, request_code, payload_size)
-
-    def unpack_payload(self, data):
-        self.name = data[:255].decode('utf-8').rstrip('\x00')  # Unpack the name, remove null terminators
-
-
-class SendRSAKeyRequest(RequestPacket):
-    def __init__(self, client_id, client_version, name, rsa_key):
-        self.name = name.ljust(255, '\x00')  # Pad name to 255 bytes
-        self.rsa_key = rsa_key  # Assume rsa_key is already 160 bytes
-        if len(rsa_key) != 160:
-            raise ValueError("RSA key must be 160 bytes")
-        payload_size = 255 + 160
-        super().__init__(client_id, client_version, request_code=826, payload_size=payload_size)
-
-    def unpack_payload(self, data):
-        self.name = data[:255].decode('utf-8').rstrip('\x00')
-        self.rsa_key = data[255:415]  # RSA key is 160 bytes
-
-
-class SendFileRequest(RequestPacket):
-    FILE_NAME_SIZE = 255
-
-    def __init__(self, client_id, client_version, content_size, original_file_size, packet_number, total_packets, file_name, message_content):
-        self.content_size = content_size
-        self.original_file_size = original_file_size
-        self.packet_number = packet_number
-        self.total_packets = total_packets
-        self.file_name = file_name.ljust(self.FILE_NAME_SIZE, '\x00')  # Pad file name
-        self.message_content = message_content
-        payload_size = 8 + 4 + 2 + 2 + len(self.file_name.encode('utf-8')) + len(self.message_content)
-        super().__init__(client_id, client_version, request_code=828, payload_size=payload_size)
-
-    def unpack_payload(self, data):
-        payload_format = f'LLHH{self.FILE_NAME_SIZE}s'
-        self.content_size, self.original_file_size, self.packet_number, self.total_packets, file_name_bytes = struct.unpack(payload_format, data)
-        self.file_name = file_name_bytes.decode('utf-8').rstrip('\x00')
-        self.message_content = data[struct.calcsize(payload_format):].decode('utf-8')
-
-
-class RequestPacketFactory:
     @staticmethod
-    def create_packet(data):
-        """Creates a packet based on the request code."""
-        # Extract request code from the header
-        client_id, client_version, request_code, payload_size = struct.unpack(RequestPacket.HEADER_FORMAT, data[:RequestPacket.HEADER_SIZE])
+    def deserialize_payload(data: bytes):
+        name = data[:NAME_SIZE].decode('utf-8').strip('\x00')
+        return RegisterPayload(name)
 
-        client_id = client_id.rstrip(b'\x00').decode('utf-8')  # Convert client ID to string
 
-        # Determine which class to instantiate based on request code
-        if request_code == 825:
-            return NameBasedRequest(client_id, client_version, request_code, "")
-        elif request_code == 826:
-            return SendRSAKeyRequest(client_id, client_version, "", b"")
-        elif request_code == 827:
-            return NameBasedRequest(client_id, client_version, request_code, "")
-        elif request_code == 828:
-            return SendFileRequest(client_id, client_version, 0, 0, 0, 0, "", "")
-        elif request_code in {900, 901, 902}:
-            return NameBasedRequest(client_id, client_version, request_code, "")
+class SendKeyPayload(Payload):
+    def __init__(self, name, public_key):
+        self._name = name
+        self._public_key = public_key
+
+    @staticmethod
+    def deserialize_payload(data: bytes):
+        name = data[:NAME_SIZE].decode('utf-8').strip('\x00')
+        public_key = data[NAME_SIZE:NAME_SIZE + KEY_SIZE].decode('utf-8').strip('\x00')
+        return SendKeyPayload(name, public_key)
+
+
+class LoginPayload(Payload):
+    def __init__(self, name):
+        self._name = name
+
+    @staticmethod
+    def deserialize_payload(data: bytes):
+        name = data[:NAME_SIZE].decode('utf-8').strip('\x00')
+        return LoginPayload(name)
+
+
+class SendFilePayload(Payload):
+    def __init__(self, content_size, original_file_size, packet_number, total_packets, file_name, message_content):
+        self._content_size = content_size
+        self._original_file_size = original_file_size
+        self._packet_number = packet_number
+        self._total_packets = total_packets
+        self._file_name = file_name
+        self._message_content = message_content
+
+    @staticmethod
+    def deserialize_payload(data: bytes):
+        content_size, = struct.unpack('>I', data[:4])
+        original_file_size, = struct.unpack('>I', data[4:8])
+        packet_number, = struct.unpack('>H', data[8:10])
+        total_packets, = struct.unpack('>H', data[10:12])
+        file_name = data[12:12 + NAME_SIZE].decode('utf-8').strip('\x00')
+        message_content = data[12 + NAME_SIZE:].decode('utf-8').strip('\x00')
+        return SendFilePayload(content_size, original_file_size, packet_number, total_packets, file_name, message_content)
+
+
+class ChecksumCorrectPayload(Payload):
+    def __init__(self, name):
+        self._name = name
+
+    @staticmethod
+    def deserialize_payload(data: bytes):
+        name = data[:NAME_SIZE].decode('utf-8').strip('\x00')
+        return ChecksumCorrectPayload(name)
+
+
+class ChecksumFailedPayload(Payload):
+    def __init__(self, name):
+        self.name = name
+
+    @staticmethod
+    def deserialize_payload(data: bytes):
+        name = data[:NAME_SIZE].decode('utf-8').strip('\x00')
+        return ChecksumFailedPayload(name)
+
+
+class ChecksumShutDownPayload(Payload):
+    def __init__(self, name):
+        self.name = name
+
+    @staticmethod
+    def deserialize_payload(data: bytes):
+        name = data[:NAME_SIZE].decode('utf-8').strip('\x00')
+        return ChecksumShutDownPayload(name)
+
+
+class PayloadFactory:
+    @staticmethod
+    def deserialize_payload(code, data):
+        if code == RequestCode.REGISTER.value:  # Registration packet code
+            return RegisterPayload.deserialize_payload(data)
+        elif code == RequestCode.SEND_RSA_PUBLIC_KEY.value:  # Send key packet code
+            return SendKeyPayload.deserialize_payload(data)
+        elif code == RequestCode.LOGIN.value:  # Login packet code
+            return LoginPayload.deserialize_payload(data)
+        elif code == RequestCode.SEND_FILE.value:  # Send file packet code
+            return SendFilePayload.deserialize_payload(data)
+        elif code == RequestCode.CRC_OK.value:  # Checksum correct packet code
+            return ChecksumCorrectPayload.deserialize_payload(data)
+        elif code == RequestCode.CRC_FAIL_TRY_AGAIN.value:  # Checksum failed packet code
+            return ChecksumFailedPayload.deserialize_payload(data)
+        elif code == RequestCode.CRC_FAIL_SHUT_DOWN.value:  # Checksum shutdown packet code
+            return ChecksumShutDownPayload.deserialize_payload(data)
         else:
-            raise ValueError(f"Unknown request code: {request_code}")
-
-# def unpack_header(header):
-#     # Assuming clientID is a fixed size of 255 bytes 
-#     clientID_size = CLIENT_ID_SIZE
-#     header_format = f'{clientID_size}sBHL'  # string of 255 bytes, uint8 (version), uint16 (code), uint32 (payloadSize)
-    
-#     clientID, version, code, payload_size = struct.unpack(header_format, header[:struct.calcsize(header_format)])
-    
-#     # Decode clientID from bytes to string, stripping null bytes
-#     clientID = clientID.decode('utf-8').rstrip('\x00')
-    
-#     return {
-#         'clientID': clientID,
-#         'version': version,
-#         'code': code,
-#         'payload_size': payload_size
-#     }
-
-
-# def unpack_register_payload(payload):
-#     # Assuming the name is a fixed-size string of 255 bytes
-#     name_size = NAME_SIZE
-#     payload_format = f'{name_size}s'
-
-#     name, = struct.unpack(payload_format, payload[:struct.calcsize(payload_format)])
-
-#     # Decode name and trim null terminators
-#     name = name.decode('utf-8').rstrip('\x00')
-
-#     return {
-#         'name': name
-#     }
-
-
-# def unpack_send_key_payload(payload):
-#     # Assuming name and publicKey are fixed-size strings: name (255 bytes) and publicKey (160 bytes)
-#     name_size = NAME_SIZE
-#     public_key_size = PUBLIC_KEY_SIZE
-#     payload_format = f'{name_size}s{public_key_size}s'
-
-#     name, public_key = struct.unpack(payload_format, payload[:struct.calcsize(payload_format)])
-
-#     # Decode name and publicKey, and trim null terminators
-#     name = name.decode('utf-8').rstrip('\x00')
-#     public_key = public_key.decode('utf-8').rstrip('\x00')
-
-#     return {
-#         'name': name,
-#         'public_key': public_key
-#     }
-
-
-# def unpack_login_payload(payload):
-#     # Assuming the name is a fixed-size string of 255 bytes
-#     name_size = NAME_SIZE
-#     payload_format = f'{name_size}s'
-
-#     name, = struct.unpack(payload_format, payload[:struct.calcsize(payload_format)])
-
-#     # Decode name and trim null terminators
-#     name = name.decode('utf-8').rstrip('\x00')
-
-#     return {
-#         'name': name
-#     }
-
-
-# def unpack_send_file_payload(payload):
-#     # Define the format for SendFilePayload: contentSize (uint32_t), originalFileSize (uint32_t),
-#     # packetNumber (uint16_t), totalPackets (uint16_t), fileName (255-byte string), messageContent (remaining bytes)
-    
-#     # Assuming fileName is fixed at 255 bytes
-#     fileName_size = FILE_NAME_SIZE
-#     payload_format = f'LLHH{fileName_size}s'
-    
-#     contentSize, originalFileSize, packetNumber, totalPackets, fileName = struct.unpack(payload_format, payload[:struct.calcsize(payload_format)])
-    
-#     # Decode fileName and trim null terminators
-#     fileName = fileName.decode('utf-8').rstrip('\x00')
-    
-#     # The remaining part of the data is the message content
-#     messageContent = payload[struct.calcsize(payload_format):]
-    
-#     return {
-#         'contentSize': contentSize,
-#         'originalFileSize': originalFileSize,
-#         'packetNumber': packetNumber,
-#         'totalPackets': totalPackets,
-#         'fileName': fileName,
-#         'messageContent': messageContent
-#     }
-
-
-
-# def unpack_checksum_correct_payload(payload):
-#     # Assuming the name is a fixed-size string of 255 bytes
-#     name_size = NAME_SIZE
-#     payload_format = f'{name_size}s'
-
-#     name, = struct.unpack(payload_format, payload[:struct.calcsize(payload_format)])
-
-#     # Decode name and trim null terminators
-#     name = name.decode('utf-8').rstrip('\x00')
-
-#     return {
-#         'name': name
-#     }
-
-
-# def unpack_checksum_failed_payload(payload):
-#     # Assuming the name is a fixed-size string of 255 bytes
-#     name_size = NAME_SIZE
-#     payload_format = f'{name_size}s'
-
-#     name, = struct.unpack(payload_format, payload[:struct.calcsize(payload_format)])
-
-#     # Decode name and trim null terminators
-#     name = name.decode('utf-8').rstrip('\x00')
-
-#     return {
-#         'name': name
-#     }
-
-
-# def unpack_checksum_shutdown_payload(payload):
-#     # Assuming the name is a fixed-size string of 255 bytes
-#     name_size = NAME_SIZE
-#     payload_format = f'{name_size}s'
-
-#     name, = struct.unpack(payload_format, payload[:struct.calcsize(payload_format)])
-
-#     # Decode name and trim null terminators
-#     name = name.decode('utf-8').rstrip('\x00')
-
-#     return {
-#         'name': name
-#     }
-
-
-# def unpack_packet(packet):
-#     # First, unpack the header
-#     header = unpack_header(packet)
-    
-#     # The payload starts right after the header, calculate the offset
-#     header_size = struct.calcsize(f'{255}sBHL')
-#     payload_data = packet[header_size:]  # Extract the payload data based on header size
-    
-#     # Determine the packet type using the code from the header
-#     if header['code'] == RequestCode.REGISTER.value:
-#         payload = unpack_register_payload(payload_data)
-#     elif header['code'] == RequestCode.SEND_RSA_PUBLIC_KEY.value:
-#         payload = unpack_send_key_payload(payload_data)
-#     elif header['code'] == RequestCode.LOGIN.value:
-#         payload = unpack_login_payload(payload_data)
-#     elif header['code'] == RequestCode.SEND_FILE.value:
-#         payload = unpack_send_file_payload(payload_data)
-#     elif header['code'] == RequestCode.CRC_OK.value:
-#         payload = unpack_checksum_correct_payload(payload_data)
-#     elif header['code'] == RequestCode.CRC_FAIL_TRY_AGAIN.value:
-#         payload = unpack_checksum_failed_payload(payload_data)
-#     elif header['code'] == RequestCode.CRC_FAIL_SHUT_DOWN.value:
-#         payload = unpack_checksum_shutdown_payload(payload_data)
-#     else:
-#         raise ValueError(f"Unknown request code: {header['code']}")
-    
-#     return {
-#         'header': header,
-#         'payload': payload
-#     }
+            raise ValueError(f"Unknown payload type code: {code}")
 
