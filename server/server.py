@@ -37,7 +37,15 @@ class ThreadedServer:
 
     def handle_client(self, client_handler):
         try:
-            client_handler.handle()
+            while True:
+                # Call the handle method repeat'edly to process client packets
+                result = client_handler.handle()
+                print(f"client handling result: {result}")
+
+                # Check if the client has closed the connection (e.g., by sending an empty message or a special signal)
+                if result is None or result != "continue":  
+                    print("Client disconnected")
+                    break
         except Exception as e:
             print(f"Error handling client: {e}")
         finally:

@@ -22,7 +22,7 @@ class ResponseHeader:
 
     def serialize(self):
         # Pack version (1 byte), response_code (2 bytes), payload_size (4 bytes) using big-endian format
-        return struct.pack('>BHI', self.version, self.response_code.value, self.payload_size)
+        return struct.pack('<BHI', self.version, self.response_code.value, self.payload_size)
 
 # Abstract Payload class
 class ResponsePayload(ABC):
@@ -71,9 +71,9 @@ class FileOkPayload(ResponsePayload):
     def serialize(self):
         return (
             self.client_id +
-            struct.pack('>I', self.content_size) +  # 4 bytes content size
+            struct.pack('<I', self.content_size) +  # 4 bytes content size
             self.file_name.encode('utf-8') +  # 255 bytes file name
-            struct.pack('>I', self.checksum)  # 4 bytes checksum
+            struct.pack('<I', self.checksum)  # 4 bytes checksum
         )
 
 # Message OK Payload: client ID (16 bytes)

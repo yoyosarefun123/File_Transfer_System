@@ -93,7 +93,7 @@ class FileDBManager:
             cursor = conn.cursor()
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS files (
-                    client_id TEXT, 
+                    client_id BLOB, 
                     file_name TEXT, 
                     path_name TEXT, 
                     verified INTEGER, 
@@ -112,8 +112,9 @@ class FileDBManager:
                 DO UPDATE SET
                     path_name=excluded.path_name,
                     verified=excluded.verified;
-            ''', (client_id, file_name, path_name, int(verified)))
+            ''', (sqlite3.Binary(client_id), file_name, path_name, int(verified)))
             conn.commit()
+
 
     def update_file_verification(self, client_id, file_name, verified):
         with sqlite3.connect(self.db_path) as conn:
@@ -122,14 +123,27 @@ class FileDBManager:
                 UPDATE files
                 SET verified = ?
                 WHERE client_id = ? AND file_name = ?;
-            ''', (int(verified), client_id, file_name))
+            ''', (int(verified), sqlite3.Binary(client_id), file_name))
             conn.commit()
 
     def get_files_by_client(self, client_id):
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute('SELECT * FROM files WHERE client_id = ?', (client_id,))
+            cursor.execute('SELECT * FROM files WHERE client_id = ?', (sqlite3.Binary(client_id),))
             return cursor.fetchall()
+    
+    def file_exists(self, client_id, file_name):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT 1 FROM files WHERE client_id = ? AND file_name = ?', (sqlite3.Binary(client_id), file_name))
+            return cursor.fetchone() is not None
+
+
+    def delete_file(self, client_id, file_name):
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute('DELETE FROM files WHERE client_id = ? AND file_name = ?', (sqlite3.Binary(client_id), file_name))
+            conn.commit()
 
 
 # Usage example (optional)

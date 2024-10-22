@@ -28,7 +28,7 @@ class RequestHeader:
 
     @staticmethod
     def deserialize_header(data: bytes):
-        client_id = data[:CLIENT_ID_SIZE].decode('utf-8').strip('\x00')
+        client_id = data[:CLIENT_ID_SIZE]
         version, = struct.unpack('<B', data[CLIENT_ID_SIZE:CLIENT_ID_SIZE + 1])
         code, = struct.unpack('<H', data[CLIENT_ID_SIZE + 1:CLIENT_ID_SIZE + 3])
         payload_size, = struct.unpack('<I', data[CLIENT_ID_SIZE + 3:CLIENT_ID_SIZE + 7])
@@ -77,7 +77,7 @@ class SendKeyPayload(RequestPayload):
     @staticmethod
     def deserialize_payload(data: bytes):
         name = data[:NAME_SIZE].decode('utf-8').strip('\x00')
-        public_key = data[NAME_SIZE:NAME_SIZE + KEY_SIZE].decode('utf-8').strip('\x00')
+        public_key = data[NAME_SIZE:NAME_SIZE + KEY_SIZE]
         return SendKeyPayload(name, public_key)
 
 
@@ -107,7 +107,7 @@ class SendFilePayload(RequestPayload):
         packet_number, = struct.unpack('>H', data[8:10])
         total_packets, = struct.unpack('>H', data[10:12])
         file_name = data[12:12 + NAME_SIZE].decode('utf-8').strip('\x00')
-        message_content = data[12 + NAME_SIZE:].decode('utf-8').strip('\x00')
+        message_content = data[12 + NAME_SIZE:]
         return SendFilePayload(content_size, original_file_size, packet_number, total_packets, file_name, message_content)
 
 
