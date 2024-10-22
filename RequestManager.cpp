@@ -39,7 +39,7 @@ vector<uint8_t> Header::serializeHeader() const {
 }
 
 unique_ptr<Packet> registrationPacket(
-	string& clientID,
+	const string& clientID,
 	const string& name,
 	uint8_t version,
 	uint16_t code)
@@ -47,8 +47,8 @@ unique_ptr<Packet> registrationPacket(
 	if (name.size() != NAME_SIZE) 
 		throw std::invalid_argument("Error: Invalid name size in creation of registrationPacket");
 
-	uint32_t payloadSize = name.size();
-	return std::make_unique<Packet>(std::make_unique<Header>(clientID, version, code, payloadSize), 
+	uint32_t payloadSize = NAME_SIZE;
+	return std::make_unique<Packet>(std::make_unique<Header>(clientID, code, payloadSize, version), 
 									std::make_unique<RegisterPayload>(name));
 }
 
@@ -65,7 +65,7 @@ unique_ptr<Packet> sendKeyPacket(
 		throw std::invalid_argument("Error: Invalid public key size in creation of sendKeyPacket");
 
 	uint32_t payloadSize = name.size() + publicKey.size();
-	return std::make_unique<Packet>(std::make_unique<Header>(clientID, version, code, payloadSize),
+	return std::make_unique<Packet>(std::make_unique<Header>(clientID, code, payloadSize, version),
 									std::make_unique<SendKeyPayload>(name, publicKey));
 }
 
@@ -80,7 +80,7 @@ unique_ptr<Packet> loginPacket(
 	}
 
 	uint32_t payloadSize = name.size();
-	return std::make_unique<Packet>(std::make_unique<Header>(clientID, version, code, payloadSize),
+	return std::make_unique<Packet>(std::make_unique<Header>(clientID, code, payloadSize, version),
 		std::make_unique<LoginPayload>(name));
 }
 
@@ -99,8 +99,8 @@ unique_ptr<Packet> sendFilePacket(
 		throw std::invalid_argument("Error: Invalid file name size in creation of sendFilePacket");
 	}
 
-	uint32_t payloadSize = contentSize + sizeof(originalFileSize) + sizeof(packetNumber) + sizeof(totalPackets);
-	return std::make_unique<Packet>(std::make_unique<Header>(clientID, version, code, payloadSize), 
+	uint32_t payloadSize = contentSize + sizeof(contentSize) + sizeof(originalFileSize) + sizeof(packetNumber) + sizeof(totalPackets) + fileName.size();
+	return std::make_unique<Packet>(std::make_unique<Header>(clientID, code, payloadSize, version), 
 									std::make_unique<SendFilePayload>(contentSize, originalFileSize, packetNumber, totalPackets, fileName, messageContent));
 }
 
@@ -115,7 +115,7 @@ unique_ptr<Packet> checksumCorrectPacket(
 	}
 	
 	uint32_t payloadSize = name.size();
-	return std::make_unique<Packet>(std::make_unique<Header>(clientID, version, code, payloadSize),
+	return std::make_unique<Packet>(std::make_unique<Header>(clientID, code, payloadSize, version),
 		std::make_unique<ChecksumCorrectPayload>(name));
 }
 
@@ -130,7 +130,7 @@ unique_ptr<Packet> checksumFailedPacket(
 	}
 
 	uint32_t payloadSize = name.size();
-	return std::make_unique<Packet>(std::make_unique<Header>(clientID, version, code, payloadSize),
+	return std::make_unique<Packet>(std::make_unique<Header>(clientID, code, payloadSize, version),
 		std::make_unique<ChecksumFailedPayload>(name));
 }
 
@@ -146,7 +146,7 @@ unique_ptr<Packet> checksumShutDownPacket(
 	}
 
 	uint32_t payloadSize = name.size();
-	return std::make_unique<Packet>(std::make_unique<Header>(clientID, version, code, payloadSize),
+	return std::make_unique<Packet>(std::make_unique<Header>(clientID, code, payloadSize, version),
 		std::make_unique<ChecksumShutDownPayload>(name));
 }
 

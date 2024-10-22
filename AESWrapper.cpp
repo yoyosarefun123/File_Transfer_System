@@ -1,70 +1,71 @@
 #include "AESWrapper.h"
 
-#include <cryptopp/modes.h>
-#include <cryptopp/aes.h>
-#include <cryptopp/filters.h>
-
-#include <stdexcept>
-#include <immintrin.h>	// _rdrand32_step
-#include <cstdint>
-
 using std::uint8_t;
 
-unsigned char* AESWrapper::GenerateKey(unsigned char* buffer, unsigned int length)
+std::string AESWrapper::GenerateKey(unsigned int length)
 {
-	for (size_t i = 0; i < length; i += sizeof(unsigned int))
-		_rdrand32_step(reinterpret_cast<unsigned int*>(&buffer[i]));
-	return buffer;
+    std::string buffer(length, '\0'); // Initialize the buffer with zeros
+    for (size_t i = 0; i < length; i += sizeof(unsigned int))
+        _rdrand32_step(reinterpret_cast<unsigned int*>(&buffer[i]));
+    return buffer;
 }
 
 AESWrapper::AESWrapper()
+    : _key(GenerateKey(DEFAULT_KEYLENGTH)) // Use GenerateKey to initialize _key
 {
-	GenerateKey(_key, DEFAULT_KEYLENGTH);
 }
 
-AESWrapper::AESWrapper(const unsigned char* key, unsigned int length)
+AESWrapper::AESWrapper(const std::string& key)
 {
-	if (length != DEFAULT_KEYLENGTH)
-		throw std::length_error("key length must be 16 bytes");
-	memcpy_s(_key, DEFAULT_KEYLENGTH, key, length);
+    if (key.size() != DEFAULT_KEYLENGTH)
+        throw std::length_error("key length must be 32 bytes");
+    _key = key; // Directly assign the key
 }
 
 AESWrapper::~AESWrapper()
 {
 }
 
-const unsigned char* AESWrapper::getKey() const
+const std::string& AESWrapper::getKey() const
 {
-	return _key;
+    return _key; // Return reference to _key
 }
 
 std::string AESWrapper::encrypt(const char* plain, unsigned int length)
 {
-	uint8_t iv[CryptoPP::AES::BLOCKSIZE] = { 0 };	// for practical use iv should never be a fixed value!
+    uint8_t iv[CryptoPP::AES::BLOCKSIZE] = { 0 }; // IV should be random for practical use
 
-	CryptoPP::AES::Encryption aesEncryption(_key, DEFAULT_KEYLENGTH);
-	CryptoPP::CBC_Mode_ExternalCipher::Encryption cbcEncryption(aesEncryption, iv);
+    std::cout << "Plaintext length before encryption: " << length << std::endl;
 
-	std::string cipher;
-	CryptoPP::StreamTransformationFilter stfEncryptor(cbcEncryption, new CryptoPP::StringSink(cipher));
-	stfEncryptor.Put(reinterpret_cast<const uint8_t*>(plain), length);
-	stfEncryptor.MessageEnd();
+    CryptoPP::AES::Encryption aesEncryption(reinterpret_cast<const uint8_t*>(_key.data()), _key.size());
+    CryptoPP::CBC_Mode_ExternalCipher::Encryption cbcEncryption(aesEncryption, iv);
 
-	return cipher;
+    std::string cipher;
+    CryptoPP::StreamTransformationFilter stfEncryptor(
+        cbcEncryption,
+        new CryptoPP::StringSink(cipher),
+        CryptoPP::BlockPaddingSchemeDef::PKCS_PADDING // Enable PKCS7 padding
+    );
+
+    stfEncryptor.Put(reinterpret_cast<const uint8_t*>(plain), length);
+    stfEncryptor.MessageEnd();
+
+    std::cout << "Ciphertext length after encryption: " << cipher.length() << std::endl;
+    return cipher;
 }
 
 
 std::string AESWrapper::decrypt(const char* cipher, unsigned int length)
 {
-	uint8_t iv[CryptoPP::AES::BLOCKSIZE] = { 0 };	// for practical use iv should never be a fixed value!
+    uint8_t iv[CryptoPP::AES::BLOCKSIZE] = { 0 }; // For practical use, IV should never be a fixed value!
 
-	CryptoPP::AES::Decryption aesDecryption(_key, DEFAULT_KEYLENGTH);
-	CryptoPP::CBC_Mode_ExternalCipher::Decryption cbcDecryption(aesDecryption, iv);
+    CryptoPP::AES::Decryption aesDecryption(reinterpret_cast<const uint8_t*>(_key.data()), _key.size()); // Use key data
+    CryptoPP::CBC_Mode_ExternalCipher::Decryption cbcDecryption(aesDecryption, iv);
 
-	std::string decrypted;
-	CryptoPP::StreamTransformationFilter stfDecryptor(cbcDecryption, new CryptoPP::StringSink(decrypted));
-	stfDecryptor.Put(reinterpret_cast<const uint8_t*>(cipher), length);
-	stfDecryptor.MessageEnd();
+    std::string decrypted;
+    CryptoPP::StreamTransformationFilter stfDecryptor(cbcDecryption, new CryptoPP::StringSink(decrypted));
+    stfDecryptor.Put(reinterpret_cast<const uint8_t*>(cipher), length);
+    stfDecryptor.MessageEnd();
 
-	return decrypted;
+    return decrypted;
 }

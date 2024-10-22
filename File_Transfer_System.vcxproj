@@ -78,10 +78,13 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalOptions>/Zc:__cplusplus %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalIncludeDirectories>C:\Users\niras\Downloads\cryptopp-CRYPTOPP_8_9_0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>C:\Users\niras\Downloads\cryptopp-CRYPTOPP_8_9_0\cryptopp\Win32\Output\Debug\cryptlib.lib</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -131,10 +134,12 @@
   <ItemGroup>
     <ClCompile Include="AESWrapper.cpp" />
     <ClCompile Include="Base64Wrapper.cpp" />
+    <ClCompile Include="Checksum.cpp" />
     <ClCompile Include="Client.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="RequestManager.cpp" />
     <ClCompile Include="Payload.cpp" />
+    <ClCompile Include="ResponseUnpacker.cpp" />
     <ClCompile Include="RSAEncryption.cpp" />
     <ClCompile Include="RSAWrapper.cpp" />
     <ClCompile Include="utils.cpp" />
@@ -142,9 +147,11 @@
   <ItemGroup>
     <ClInclude Include="AESWrapper.h" />
     <ClInclude Include="Base64Wrapper.h" />
+    <ClInclude Include="Checksum.h" />
     <ClInclude Include="Client.h" />
     <ClInclude Include="RequestManager.h" />
     <ClInclude Include="Payload.h" />
+    <ClInclude Include="ResponseUnpacker.h" />
     <ClInclude Include="RSAEncryption.h" />
     <ClInclude Include="RSAWrapper.h" />
     <ClInclude Include="utils.h" />
@@ -155,19 +162,11 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
     <Import Project="packages\boost.1.86.0\build\boost.targets" Condition="Exists('packages\boost.1.86.0\build\boost.targets')" />
-    <Import Project="packages\cryptopp.android.5.6.5.2\build\native\cryptopp.android.targets" Condition="Exists('packages\cryptopp.android.5.6.5.2\build\native\cryptopp.android.targets')" />
-    <Import Project="packages\cryptopp.v120.5.6.5.2\build\native\cryptopp.v120.targets" Condition="Exists('packages\cryptopp.v120.5.6.5.2\build\native\cryptopp.v120.targets')" />
-    <Import Project="packages\cryptopp.v140.5.6.5.2\build\native\cryptopp.v140.targets" Condition="Exists('packages\cryptopp.v140.5.6.5.2\build\native\cryptopp.v140.targets')" />
-    <Import Project="packages\cryptopp.5.6.5.4\build\native\cryptopp.targets" Condition="Exists('packages\cryptopp.5.6.5.4\build\native\cryptopp.targets')" />
   </ImportGroup>
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
       <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
     </PropertyGroup>
     <Error Condition="!Exists('packages\boost.1.86.0\build\boost.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\boost.1.86.0\build\boost.targets'))" />
-    <Error Condition="!Exists('packages\cryptopp.android.5.6.5.2\build\native\cryptopp.android.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\cryptopp.android.5.6.5.2\build\native\cryptopp.android.targets'))" />
-    <Error Condition="!Exists('packages\cryptopp.v120.5.6.5.2\build\native\cryptopp.v120.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\cryptopp.v120.5.6.5.2\build\native\cryptopp.v120.targets'))" />
-    <Error Condition="!Exists('packages\cryptopp.v140.5.6.5.2\build\native\cryptopp.v140.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\cryptopp.v140.5.6.5.2\build\native\cryptopp.v140.targets'))" />
-    <Error Condition="!Exists('packages\cryptopp.5.6.5.4\build\native\cryptopp.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\cryptopp.5.6.5.4\build\native\cryptopp.targets'))" />
   </Target>
 </Project>
