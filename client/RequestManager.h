@@ -23,9 +23,9 @@ using std::uint8_t, std::uint16_t, std::uint32_t, std::vector, std::unique_ptr, 
 class Header {
 private:
 	string clientID;
-	uint8_t version;
 	uint16_t code;
 	uint32_t payloadSize;
+	uint8_t version;
 
 public:
 	Header(const string& clientID, uint16_t code, uint32_t payloadSize, uint8_t version = CLIENT_VERSION);
@@ -80,7 +80,7 @@ unique_ptr<Packet> checksumCorrectPacket(
 	uint16_t code = CHECKSUM_CORRECT_CODE);
 
 unique_ptr<Packet> checksumFailedPacket(
-	string& clientID, 
+	const string& clientID, 
 	const string& name,
 	uint8_t version = CLIENT_VERSION,
 	uint16_t code = CHECKSUM_FAILED_CODE);

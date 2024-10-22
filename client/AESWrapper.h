@@ -1,24 +1,29 @@
 #pragma once
 
+#include <cryptopp/modes.h>
+#include <cryptopp/aes.h>
+#include <cryptopp/filters.h>
+
+#include <stdexcept>
 #include <string>
+#include <immintrin.h>  // _rdrand32_step
+#include <cstdint>
+#include <cstring>
 
-
-class AESWrapper
-{
-public:
-	static const unsigned int DEFAULT_KEYLENGTH = 16;
+class AESWrapper {
 private:
-	unsigned char _key[DEFAULT_KEYLENGTH];
-	AESWrapper(const AESWrapper& aes);
+    static const unsigned int DEFAULT_KEYLENGTH = 32; // 256-bit key length
+    std::string _key; // Changed to std::string
+
+    // Generate a random AES key
+    std::string GenerateKey(unsigned int length); // Change return type to std::string
+
 public:
-	static unsigned char* GenerateKey(unsigned char* buffer, unsigned int length);
+    AESWrapper();
+    AESWrapper(const std::string& key); // Change parameter to std::string
+    ~AESWrapper();
 
-	AESWrapper();
-	AESWrapper(const unsigned char* key, unsigned int size);
-	~AESWrapper();
-
-	const unsigned char* getKey() const;
-
-	std::string encrypt(const char* plain, unsigned int length);
-	std::string decrypt(const char* cipher, unsigned int length);
+    const std::string& getKey() const; // Return type changed to const std::string&
+    std::string encrypt(const char* plain, unsigned int length);
+    std::string decrypt(const char* cipher, unsigned int length);
 };

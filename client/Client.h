@@ -17,11 +17,27 @@ private:
 	string RSAPrivateKey;
 	string AESKey;
 	string clientID;
+	string name;
+	std::filesystem::path path;
 
 public:
-	Client(boost::asio::io_context &io_context, const string& address, const string& port, const string &RSAPublicKey, const string &RSAPrivateKey, const string &AESKey);
+	Client(boost::asio::io_context& io_context);
 	
-	void sendFile(std::filesystem::path path);
-	void sendPacket(unique_ptr<Packet> packet);
+	void setName(const string& name);
 
+	void sendFile();
+	void connect();
+	void sendPacket(unique_ptr<Packet> packet);
+	void registrate();
+	void login();
+	void sendRSAreceiveAES();
+	void handleCRCSuccess();
+	void handleCRCFailure();
+	void handleCRCShutdown();
+	void closeConnection();
+	void loadTransferInfo();
+	void loadMeInfo();
+	void saveClientInfo();
+	void savePrivateKey();
+	void loadPrivateKey();
 };

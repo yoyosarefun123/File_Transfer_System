@@ -4,35 +4,65 @@
 #include <memory>
 #include "Client.h" // Include your Client class header file
 
-using namespace std;
-
 int main() {
     // Initialize Boost ASIO context
-    boost::asio::io_context io_context;
-
-    // Define server address and port
-    const string address = "127.0.0.1"; // or use your server's IP address
-    const string port = "12345"; // Port your server is listening on
-
-    // Example RSA and AES keys (replace these with actual keys)
-    string RSAPublicKey = "your_public_key_here";
-    string RSAPrivateKey = "your_private_key_here";
-    string AESKey = "your_aes_key_here"; // Ensure this key is 16 bytes long
-
-    // Create a unique pointer to a Client instance
-    auto client = make_unique<Client>(io_context, address, port, RSAPublicKey, RSAPrivateKey, AESKey);
-
-    // Define the path to the file you want to send
-    std::filesystem::path filePath = "test.txt";
-
-    // Attempt to send the file
     try {
-        client->sendFile(filePath);
-        cout << "File sent successfully." << endl;
+        boost::asio::io_context io_context;
+
+        // Create a unique pointer to a Client instance
+        auto client = std::make_unique<Client>(io_context);
+        std::cout << std::filesystem::current_path() << std::endl;
+        client->loadTransferInfo();
+        client->connect();
+
+        if (!std::filesystem::exists(std::filesystem::current_path() / "me.info")) {
+            try {
+                client->registrate();
+            }
+            catch (const std::exception& e) {
+                std::cerr << "Error in registration: " << e.what() << std::endl;
+                exit(0);
+            }
+            try {
+                client->sendRSAreceiveAES();
+            }
+            catch (const std::exception& e) {
+                std::cerr << "Error in sending RSA key or receiving AES key: " << e.what() << std::endl;
+                exit(0);
+            }
+        }
+        else {
+            std::cout << "Attempting to load info from me.info." << std::endl;
+            client->loadMeInfo();
+            std::cout << "Attempting to load key from prev.key" << std::endl;
+            client->loadPrivateKey();
+            try {
+                client->login();
+            }
+            catch (const std::exception& e) {
+                std::cerr << "Error in login: " << e.what() << std::endl;
+                exit(0);
+            }
+        }
+
+        try {
+            client->sendFile();
+        }
+        catch (const std::exception& e) {
+            std::cerr << "Error in sending file process: " << e.what() << std::endl;
+            exit(0);
+        }
+        try {
+            client->saveClientInfo();
+        }
+        catch (const std::exception& e) {
+            std::cerr << "Error in saving client info: " << e.what() << std::endl;
+            exit(0);
+        }
     }
     catch (const std::exception& e) {
-        cerr << "Error while sending file: " << e.what() << endl;
+        std::cerr << "Exception raised: " << e.what() << std::endl;
     }
-
     return 0;
 }
+    
