@@ -121,7 +121,7 @@ class ClientHandler:
         with self._db_lock:
             try: 
                 print("Updating database with keys")
-                self._client_db_manager.update_client_aes_key(self._client_id, self._public_key)
+                self._client_db_manager.update_client_aes_key(self._client_id, self._aes_key)
                 self._client_db_manager.update_client_public_key(self._client_id, self._public_key)
             except Exception as e:
                 print(f"Exception raised in handle_key_send database update: {e}")
@@ -179,7 +179,7 @@ class ClientHandler:
 
     def send_login_failed(self):
         response_payload = LoginFailPayload(self._client_id)
-        response_header = ResponseHeader(SERVER_VERSION, ResponseCode.LOGIN_FAIL.value, CLIENT_ID_SIZE)
+        response_header = ResponseHeader(SERVER_VERSION, ResponseCode.LOGIN_FAIL, CLIENT_ID_SIZE)
         response_packet = Packet(response_header, response_payload)
         self._client_socket.send(response_packet.serialize())                
 
@@ -296,6 +296,6 @@ class ClientHandler:
 
     def send_general_error(self):
             response_payload = GeneralErrorPayload()
-            response_header = ResponseHeader(SERVER_VERSION, ResponseCode.GENERAL_ERROR.value, 0)
+            response_header = ResponseHeader(SERVER_VERSION, ResponseCode.GENERAL_ERROR, 0)
             response_packet = Packet(response_header, response_payload)
             self._client_socket.send(response_packet.serialize()) 
