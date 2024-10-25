@@ -39,17 +39,14 @@ class ClientHandler:
         try:
             header_data = self._client_socket.recv(CLIENT_HEADER_SIZE)
             if not header_data:
-                print("Client disconnected while reading header")
                 return "disconnect"
             
-            print(f"raw header data: {header_data}")
             header = RequestHeader.deserialize_header(header_data)
-            print(f"header code: {header._code}, payload size: {header._payload_size}")
+            print(f"Received header code: {header._code}, payload size: {header._payload_size}")
             payload_data = self._client_socket.recv(header._payload_size)
             
             payload = RequestPayloadFactory.deserialize_payload(header._code, payload_data)
             if not payload_data and header._payload_size > 0:
-                print("Client disconnected while reading payload")
                 return "disconnect"
 
             if header._code == RequestCode.REGISTER.value:  # Registration packet code
@@ -75,12 +72,12 @@ class ClientHandler:
             return "error"
     
     def handle_registration(self, request_header : RequestHeader, request_payload : RegisterPayload):
-        print("Handling registration:")
+        print(f"Attempting to register {request_payload._name}:")
         with self._db_lock:
             client_exists = self._client_db_manager.client_exists_by_name(request_payload._name) 
         
         if (client_exists):
-            print(f"Client {request_payload._name} already exists")
+            print(f"Client {request_payload._name} already exists. Registration failed.")
             try:
                 response_payload = RegisterFailPayload()
                 response_header = ResponseHeader(version=SERVER_VERSION, response_code=ResponseCode.REGISTER_FAIL, payload_size=0)
@@ -94,20 +91,21 @@ class ClientHandler:
         else:
             self._client_name = request_payload._name
             self._client_id = uuid.uuid4().bytes
+            print(f"Generated client ID (printed in hex) to send to client: {self._client_id.hex()}")
             with self._db_lock:
                 try:
                     self._client_db_manager.create_client_table()
                     self._client_db_manager.add_or_update_client(self._client_id, self._client_name, self._public_key, self._aes_key)
                 except Exception as e:
-                    print(f"Exception raised in handle registration db update: {e}")
+                    print(f"Exception raised trying to add client to database: {e}")
                     self.send_general_error()
+                    return
             
             try:
+                print("Registration OK. Client updated.")
                 response_payload = RegisterOkPayload(self._client_id)
                 response_header = ResponseHeader(SERVER_VERSION, ResponseCode.REGISTER_OK, CLIENT_ID_SIZE)
                 response_packet = Packet(response_header, response_payload)
-                print(f"sending header: {response_header.serialize()}\nsending payload: {response_payload.serialize()}")
-                print(f"total packet: {response_packet.serialize()}")
                 self._client_socket.send(response_packet.serialize())
                 return
             except Exception as e:
@@ -118,9 +116,8 @@ class ClientHandler:
     def handle_key_send(self, request_header : RequestHeader, request_payload : SendKeyPayload):
         print("Setting public key from client payload.")
         self._public_key = request_payload._public_key
-        print("Generating aes key")
+        print("Generating AES key.")
         self._aes_key = crypto.aes.generate_key()
-        print(f"Size of aes key before encryption: {len(self._aes_key)}")
         with self._db_lock:
             try: 
                 print("Updating database with keys")
@@ -128,11 +125,12 @@ class ClientHandler:
                 self._client_db_manager.update_client_public_key(self._client_id, self._public_key)
             except Exception as e:
                 print(f"Exception raised in handle_key_send database update: {e}")
+                self.send_general_error()
+                return
 
         try:
-            print("Sending response packet to user")
+            print("Sending AES key to user.")
             encrypted_aes = crypto.rsa.encrypt(self._aes_key, self._public_key)
-            print(f"Size of encrypted aes key is: {len(encrypted_aes)}")
             response_payload = AESSendKeyPayload(self._client_id, encrypted_aes)
             response_header = ResponseHeader(SERVER_VERSION, ResponseCode.AES_SEND_KEY, CLIENT_ID_SIZE + len(encrypted_aes))
             response_packet = Packet(response_header, response_payload)
@@ -143,7 +141,7 @@ class ClientHandler:
 
 
     def handle_login(self, request_header : RequestHeader, request_payload : LoginPayload):
-        print("Logging in. \nChecking that client exists:")
+        print(f"Logging in. \nChecking that client by name {request_payload._name} exists:")
         self._client_id = request_header._client_id
         with self._db_lock:
             client_exists = self._client_db_manager.client_exists_by_name(request_payload._name) 
@@ -152,9 +150,15 @@ class ClientHandler:
             print("Client does exists. Attempting to retreive information from database:")
             with self._db_lock:
                 client_data = self._client_db_manager.get_client(self._client_id)
-                self._client_id, self._client_name, self._public_key, last_seen, self._aes_key = client_data
-                print(f"Data received from database: {client_data}")
-
+                try: 
+                    self._client_id, self._client_name, self._public_key, last_seen, self._aes_key = client_data
+                    print(f"Data received from database.")
+                
+                except Exception as e:
+                    print(f"Data could not be loaded from database: {e}")
+                    self.send_general_error()
+                    return
+            
                 self._aes_key = crypto.aes.generate_key()
                 self._client_db_manager.update_client_aes_key(self._client_id, self._aes_key)
             
@@ -186,25 +190,28 @@ class ClientHandler:
             client_dir = os.path.join(self._files_path, self._client_id.hex())
             os.makedirs(client_dir, exist_ok=True)  # Create the directory if it doesn't exist
 
-            # Step 2: Check if the file already exists
-            self._file_name = payload._file_name
+            # make sure that the file name is only the actual name of the file, not a path
+            sanitized_file_name = os.path.basename(payload._file_name)
+            self._file_name = sanitized_file_name
             file_path = os.path.join(client_dir, self._file_name)
             while True:
                 with self._db_lock:
-                    print(f"Check if client exists: {self._file_db_manager.file_exists(self._client_id, self._file_name)}")
-                    print(f"Client ID: {self._client_id}, file name: {self._file_name}")
+                    print(f"Client ID: {self._client_id.hex()}, file name: {self._file_name}")
+                    print(f"Check if file {self._file_name} already exists: ")
                     if self._file_db_manager.file_exists(self._client_id, self._file_name):
+                        print("File does exist. Overwriting it.")
                         # If it exists, delete the old entry and file
                         
                         self._file_db_manager.delete_file(self._client_id, self._file_name)
                         if os.path.exists(file_path):
                             os.remove(file_path)
-                            print(f"Deleted existing file: {file_path}")
+                            print(f"Deleted previous file with same name.")
+                    else:
+                        print(f"{self._file_name} does not exist. Adding it:")
 
                 # Step 3: Open the file for writing (append mode if it already exists)
                 with open(file_path, 'ab') as file:  # 'ab' mode to append binary data
                     # Step 4: Write the message content to the file
-                    print(f"Size of message content: {len(payload._message_content)}")
                     file.write(payload._message_content)  # Write the current packet content
 
                 # Step 5: Check if this is the last packet
@@ -213,7 +220,7 @@ class ClientHandler:
                     break 
                     # Step 6: Update the file metadata in the database
                 else:
-                    print(f"Received packet {payload._packet_number} of {payload._total_packets} for file {payload._file_name}.")
+                    print(f"Received packet {payload._packet_number} of {payload._total_packets} for file {self._file_name}.")
                     
             with self._db_lock:
                 self._file_db_manager.add_file(self._client_id, payload._file_name, file_path, verified=False)
@@ -223,7 +230,6 @@ class ClientHandler:
             with open(file_path, 'rb') as file:
                 encrypted_data = file.read()
             print(f"Decrypting data for: {self._file_name}")
-            print(f"Size of data to decrypt: {len(encrypted_data)}")
             decrypted_data = crypto.aes.decrypt(encrypted_data, self._aes_key)
 
             # Step 8: Write the decrypted data back to the file or another file as needed
@@ -240,7 +246,6 @@ class ClientHandler:
             checksum = int(checksum_str)  # Convert checksum to int
             content_size = len(encrypted_data)  # Convert content size to int
             
-            print("Sending payload back to user.")
             response_payload = FileOkPayload(self._client_id, content_size, self._file_name.ljust(NAME_SIZE, '\0'), checksum)
             response_header = ResponseHeader(SERVER_VERSION, ResponseCode.FILE_OK, CLIENT_ID_SIZE + NAME_SIZE + 4 + 4)
             response_packet = Packet(response_header, response_payload)
@@ -252,6 +257,7 @@ class ClientHandler:
 
 
     def handle_checksum_ok(self, header : RequestHeader, payload : ChecksumCorrectPayload):
+        print("Checksum was correct - file validated.")
         response_payload = MessageOkPayload(self._client_id)
         response_header = ResponseHeader(SERVER_VERSION, ResponseCode.MESSAGE_OK, CLIENT_ID_SIZE)
         response_packet = Packet(response_header, response_payload)
@@ -261,10 +267,27 @@ class ClientHandler:
 
 
     def handle_checksum_fail(self, header : RequestHeader, payload : ChecksumFailedPayload):
-        pass
+        print("Checksum was incorrect - deleting and trying again.")
+        client_dir = os.path.join(self._files_path, self._client_id.hex())
+        file_path = os.path.join(client_dir, self._file_name)
+        
+        if self._file_db_manager.file_exists(self._client_id, self._file_name):
+            self._file_db_manager.delete_file(self._client_id, self._file_name)
+            if os.path.exists(file_path):
+                os.remove(file_path)
+                print(f"Deleted file entry {self._file_name}.")
 
 
     def handle_checksum_shutdown(self, header : RequestHeader, payload : ChecksumShutDownPayload):
+        print("Checksum was incorrect - deleting and shutting down.")
+        client_dir = os.path.join(self._files_path, self._client_id.hex())
+        file_path = os.path.join(client_dir, self._file_name)
+        
+        if self._file_db_manager.file_exists(self._client_id, self._file_name):            
+            self._file_db_manager.delete_file(self._client_id, self._file_name)
+            if os.path.exists(file_path):
+                os.remove(file_path)
+                print(f"Deleted file entry {self._file_name}.")
         response_payload = MessageOkPayload(self._client_id)
         response_header = ResponseHeader(SERVER_VERSION, ResponseCode.MESSAGE_OK, CLIENT_ID_SIZE)
         response_packet = Packet(response_header, response_payload)
