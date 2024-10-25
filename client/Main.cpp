@@ -11,7 +11,6 @@ int main() {
 
         // Create a unique pointer to a Client instance
         auto client = std::make_unique<Client>(io_context);
-        std::cout << std::filesystem::current_path() << std::endl;
         client->loadTransferInfo();
         client->connect();
 
@@ -32,9 +31,9 @@ int main() {
             }
         }
         else {
-            std::cout << "Attempting to load info from me.info." << std::endl;
+            std::cout << "Attempting to load info from me.info:" << std::endl;
             client->loadMeInfo();
-            std::cout << "Attempting to load key from prev.key" << std::endl;
+            std::cout << "Attempting to load key from prev.key:" << std::endl;
             client->loadPrivateKey();
             try {
                 client->login();

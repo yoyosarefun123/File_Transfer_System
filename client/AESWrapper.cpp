@@ -35,8 +35,6 @@ std::string AESWrapper::encrypt(const char* plain, unsigned int length)
 {
     uint8_t iv[CryptoPP::AES::BLOCKSIZE] = { 0 }; // IV should be random for practical use
 
-    std::cout << "Plaintext length before encryption: " << length << std::endl;
-
     CryptoPP::AES::Encryption aesEncryption(reinterpret_cast<const uint8_t*>(_key.data()), _key.size());
     CryptoPP::CBC_Mode_ExternalCipher::Encryption cbcEncryption(aesEncryption, iv);
 
@@ -50,7 +48,6 @@ std::string AESWrapper::encrypt(const char* plain, unsigned int length)
     stfEncryptor.Put(reinterpret_cast<const uint8_t*>(plain), length);
     stfEncryptor.MessageEnd();
 
-    std::cout << "Ciphertext length after encryption: " << cipher.length() << std::endl;
     return cipher;
 }
 

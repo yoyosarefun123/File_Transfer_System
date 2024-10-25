@@ -70,19 +70,21 @@ void Client::registrate() {
         std::cout << "Response code: " << static_cast<int>(header.getResponseCode()) << std::endl;
 
         if (header.getResponseCode() == ResponseCode::REGISTER_FAIL or header.getResponseCode() == ResponseCode::GENERAL_ERROR) {
-            if (i == 2)
+            if (i == 2) {
                 std::cout << ("Registration failed for third time - exiting.") << std::endl;
+                break;
+            }
             else
                 std::cout << ("Registration failed. Trying again!") << std::endl;
             continue;
         }
 
-        std::cout << "payload size according to header: " << header.getPayloadSize() << std::endl;
+        std::cout << "Reading payload:" << std::endl;
 
         vector<uint8_t> responsePayloadData(header.getPayloadSize());
         bytesRead = boost::asio::read(this->socket, boost::asio::buffer(responsePayloadData), error);
 
-        std::cout << "read " << bytesRead << " bytes into payload" << std::endl;
+        std::cout << "Read " << bytesRead << " bytes into payload" << std::endl;
 
         if (error) {
             throw std::runtime_error("Error reading from socket: " + error.message());
@@ -144,11 +146,13 @@ void Client::sendRSAreceiveAES() {
 
         auto header = ResponseHeader::deserializeHeader(responseHeaderData);
         std::cout << "Header response code: " << static_cast<int>(header.getResponseCode()) << std::endl;
-        if (header.getResponseCode() == ResponseCode::GENERAL_ERROR) {
+        if (header.getResponseCode() == ResponseCode::GENERAL_ERROR and i < 2) {
             std::cout << "Server failure trying to send AES key. Trying again!" << std::endl;
             continue;
         }
-
+        else if (header.getResponseCode() == ResponseCode::GENERAL_ERROR and i == 2) {
+            throw std::runtime_error("Server failure trying to send AES key for third time - aborting.");
+        }
         if (header.getResponseCode() != ResponseCode::AES_SEND_KEY) {
             throw std::runtime_error("Illegal header response code for send AES request.");
         }
@@ -171,14 +175,15 @@ void Client::sendRSAreceiveAES() {
         auto payload = AESSendKeyPayload::deserialize(responsePayloadData);
 
         // Decrypt the AES key using the RSA private key
-        std::string encryptedAESKey = payload.getAesKey(); // Assuming this retrieves the encrypted AES key
-        std::string aesKey;
+        std::cout << "Received encrypted AES key." << std::endl;
+        string encryptedAESKey = payload.getAesKey(); // Assuming this retrieves the encrypted AES key
+        string aesKey;
 
         try {
             aesKey = privateWrapper.decrypt(encryptedAESKey); // Decrypting with the private key
         }
         catch (const std::exception& e) {
-            throw std::runtime_error("Failed to decrypt AES key: " + std::string(e.what()));
+            throw std::runtime_error("Failed to decrypt AES key: " + string(e.what()));
         }
 
         // Now aesKey holds the decrypted AES key. You can store it or use it as needed.
@@ -209,7 +214,7 @@ void Client::login() {
         auto header = ResponseHeader::deserializeHeader(responseHeaderData);
         if (header.getResponseCode() == ResponseCode::LOGIN_FAIL or header.getResponseCode() == ResponseCode::GENERAL_ERROR) {
             if (i == 2)
-                std::cout << ("Login failed for third time - exiting.") << std::endl;
+                throw std::runtime_error("Login failed for third time - aborting.");
             else
                 std::cout << ("Login failed. Trying again!") << std::endl;
             continue;
@@ -226,9 +231,8 @@ void Client::login() {
         }
 
         if (header.getResponseCode() == ResponseCode::LOGIN_OK_SEND_AES) {
-            std::cout << "Logging in!" << std::endl;
+            std::cout << "Attempting to login:" << std::endl;
             auto payload = LoginOkPayload::deserialize(responsePayloadData);
-            std::cout << "Deserialized payload..." << std::endl;
             string encryptedAESKey = payload.getEncryptedAESKey(); // Assuming this retrieves the encrypted AES key
 
             
@@ -236,11 +240,10 @@ void Client::login() {
             RSAPublicWrapper publicWrapper(this->RSAPublicKey);
 
             try {
-                std::cout << "Encrypted AES key size: " << encryptedAESKey.size() << std::endl;
                 this->AESKey = privateWrapper.decrypt(encryptedAESKey);
             }
             catch (const std::exception& e) {
-                throw std::runtime_error("Error in decrypting aes key after login.");
+                throw std::runtime_error("Error in decrypting aes key after login. " + string(e.what()));
             }
 
             std::cout << "Login succesful. New AES key received and updated." << std::endl;
@@ -250,7 +253,6 @@ void Client::login() {
             throw std::runtime_error("Illegal header response code for registration attempt.");
         }
     }
-    throw std::runtime_error("Failed to register 3 times - aborting.");
 }
 
 
@@ -271,26 +273,27 @@ void Client::sendFile() {
     file.seekg(0, std::ios::beg); // Go back to the beginning of the file
 
     // Read the entire file into a vector of bytes
-    std::vector<uint8_t> fileContent(fileSize);
+    vector<uint8_t> fileContent(fileSize);
     file.read(reinterpret_cast<char*>(fileContent.data()), fileSize);
     file.close();
 
     uint32_t checksum = static_cast<uint32_t>(memcrc(reinterpret_cast<char*>(fileContent.data()), fileSize));
 
     // Step 2: Encrypt the file content using AES encryption
-    AESWrapper aes(this->AESKey); // Ensure the AES key is 16 bytes (default length)
-    std::string encryptedContent = aes.encrypt(reinterpret_cast<const char*>(fileContent.data()), fileContent.size());
+    std::cout << "Encrypting file using AES key:" << std::endl;
+    AESWrapper aes(this->AESKey); 
+    string encryptedContent = aes.encrypt(reinterpret_cast<const char*>(fileContent.data()), fileContent.size());
 
     // Step 3: Split the encrypted content into chunks of 1024 bytes
-    std::vector<uint8_t> encryptedData(encryptedContent.begin(), encryptedContent.end());
-    std::cout << "Size of encryptedData vector: " << encryptedData.size() << std::endl;
-    std::vector<std::vector<uint8_t>> chunks = splitIntoChunks(encryptedData, 1024);
-    std::cout << "Size of first chunk: " << chunks[0].size() << std::endl;
+    std::cout << "Splitting encrypted file into chunks: " << std::endl;
+    vector<uint8_t> encryptedData(encryptedContent.begin(), encryptedContent.end());
+    vector<vector<uint8_t>> chunks = splitIntoChunks(encryptedData, 1024);
 
     // Step 4: Prepare and send packets
     uint16_t totalPackets = static_cast<uint16_t>(chunks.size());
+    std::cout << "File split into " << totalPackets << " chunks." << std::endl;
     uint16_t packetNumber = 1;
-    std::string fileName = path.filename().string();
+    string fileName = path.filename().string();
     for (int i = 0; i < 3; i++) {
         for (const auto& chunk : chunks) {
             // Create the packet payload
@@ -301,7 +304,7 @@ void Client::sendFile() {
                 packetNumber,                                     // Current packet number
                 totalPackets,                                     // Total number of packets
                 adjustStringSize(fileName, NAME_SIZE),                  // 255-byte file name
-                std::string(chunk.begin(), chunk.end())           // Chunk data as string
+                string(chunk.begin(), chunk.end())           // Chunk data as string
             );
 
             sendPacket(std::move(packet));  // Send the packet
@@ -310,6 +313,7 @@ void Client::sendFile() {
 
         vector<uint8_t> responseHeaderData(SERVER_HEADER_SIZE);
         boost::system::error_code error;
+        std::cout << "Reading server response to file" << std::endl;
         size_t bytesRead = boost::asio::read(this->socket, boost::asio::buffer(responseHeaderData), error);
 
         // Handle errors
@@ -392,6 +396,7 @@ void Client::handleCRCSuccess() {
 }
 
 void Client::handleCRCFailure() {
+    std::cout << "Checksum failed. Trying again." << std::endl;
     auto packet = checksumFailedPacket(this->clientID, this->name);
     sendPacket(std::move(packet));
 }
@@ -431,11 +436,22 @@ void Client::handleCRCShutdown() {
 
 void Client::closeConnection() {
     if (this->socket.is_open()) {
-        this->socket.close(); // Close the socket
-        std::cout << "Socket closed successfully." << std::endl;
+        // Gracefully shut down the send side of the socket connection
+        boost::system::error_code ec;
+        this->socket.shutdown(boost::asio::ip::tcp::socket::shutdown_send, ec);
+
+        if (ec) {
+            throw std::runtime_error("Error shutting down socket: " + ec.message());
+        }
+
+        // Now, close the socket
+        this->socket.close(ec);
+        if (ec) {
+            throw std::runtime_error("Error closing socket: " + ec.message());
+        }
     }
     else {
-        std::cout << "Socket is already closed." << std::endl;
+        throw std::runtime_error("Socket is already closed.");
     }
 }
 
@@ -467,7 +483,6 @@ void Client::loadTransferInfo() {
 
     // Step 2: Read the second line for the client name
     if (std::getline(transferFile, line)) {
-        std::cout << "Name is " << trimString(line).length() << " bytes long." << std::endl;
         this->setName(trimString(line));  // Ensure the name is no more than 100 characters
     }
     else {
@@ -513,7 +528,6 @@ void Client::loadMeInfo() {
     // Step 1: Read the first line for the client name
     if (std::getline(meFile, line)) {
         this->setName(trimString(line));
-        std::cout << "Name loaded from me.info: " << this->name << std::endl;
     }
     else {
         throw std::runtime_error("me.info file is missing the client name line.");
@@ -525,40 +539,23 @@ void Client::loadMeInfo() {
         if (hexClientID.length() != 32) {
             throw std::runtime_error("Invalid user ID length in me.info. Expected 32 characters.");
         }
-        std::cout << "Client id (in hex) loaded from me.info" << hexClientID << std::endl;
         this->clientID = hexToBytes(hexClientID);  // Convert from hex to bytes
     }
     else {
         throw std::runtime_error("me.info file is missing the user ID line.");
     }
 
-    // Step 3: Read the third line for the RSA private key in base64 format
-    //if (std::getline(meFile, line)) {
-    //    string base64PrivateKey = trimString(line);
-
-    //    // Decode the RSA private key from base64
-    //    this->RSAPrivateKey = Base64Wrapper::decode(base64PrivateKey);
-
-    //    // Initialize the RSA private key and derive the public key
-    //    RSAPrivateWrapper privateKeyWrapper(this->RSAPrivateKey);
-    //    this->RSAPublicKey = privateKeyWrapper.getPublicKey();  // Derive the public key
-    //}
-    //else {
-    //    throw std::runtime_error("me.info file is missing the RSA private key line.");
-    //}
-
-    // Close the file after reading
     meFile.close();
 
     std::cout << "Me info loaded successfully:\n";
     std::cout << "Client Name: " << this->name << "\n";
-    std::cout << "Client ID (Hex): " << line << "\n";  // Display hex, but clientID is in byte form internally
-    /*std::cout << "RSA Public Key: " << this->RSAPublicKey << "\n";*/
+    std::cout << "Client ID in hex: " << line << "\n";  // Display hex, but clientID is in byte form internally
 }
 
 
 void Client::saveClientInfo() {
     // Create or open the "me.info" file in the current directory
+    std::cout << "Saving client information into me.info:" << std::endl;
     std::filesystem::path meInfoPath = std::filesystem::current_path() / "me.info";
     std::ofstream meInfoFile(meInfoPath);
 
@@ -567,7 +564,7 @@ void Client::saveClientInfo() {
     }
 
     // Write client name
-    std::cout << "Saving client name: " << this->name << std::endl;
+    std::cout << "Saving client name." << std::endl;
     meInfoFile << removeNullPadding(this->name) << "\n";
 
     // Write client ID as hex (16 bytes = 32 hex characters)
@@ -575,12 +572,12 @@ void Client::saveClientInfo() {
     for (unsigned char c : this->clientID) {
         ss << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(c);
     }
-    std::cout << "Saving client ID in hex: " << ss.str() << std::endl;
+    std::cout << "Saving client ID in hex." << std::endl;
     meInfoFile << ss.str() << "\n";
 
     // Write RSA private key as base64
-    std::string encodedPrivateKey = Base64Wrapper::encode(this->RSAPrivateKey);
-    std::cout << "Saving base64 private key: " << encodedPrivateKey << std::endl;
+    string encodedPrivateKey = Base64Wrapper::encode(this->RSAPrivateKey);
+    std::cout << "Saving base64 private key." << std::endl;
     meInfoFile << encodedPrivateKey << "\n";
 
     meInfoFile.close();
@@ -596,10 +593,11 @@ void Client::savePrivateKey() {
     }
 
     // Write RSA private key as base64
-    std::string encodedPrivateKey = Base64Wrapper::encode(this->RSAPrivateKey);
+    string encodedPrivateKey = Base64Wrapper::encode(this->RSAPrivateKey);
     privKeyFile << encodedPrivateKey;
 
     privKeyFile.close();
+    std::cout << "Saved private key to priv.key." << std::endl;
 }
 
 void Client::loadPrivateKey() {
@@ -612,7 +610,7 @@ void Client::loadPrivateKey() {
     }
 
     // Read the base64-encoded private key from the file
-    std::string encodedPrivateKey((std::istreambuf_iterator<char>(privKeyFile)), std::istreambuf_iterator<char>());
+    string encodedPrivateKey((std::istreambuf_iterator<char>(privKeyFile)), std::istreambuf_iterator<char>());
     encodedPrivateKey = trimString(encodedPrivateKey);
     // Decode the private key
     this->RSAPrivateKey = Base64Wrapper::decode(encodedPrivateKey);
@@ -620,4 +618,5 @@ void Client::loadPrivateKey() {
     this->RSAPublicKey = privateKeyWrapper.getPublicKey();
 
     privKeyFile.close();
+    std::cout << "Loaded private key from priv.key." << std::endl;
 }
