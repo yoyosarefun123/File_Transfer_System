@@ -194,67 +194,73 @@ class ClientHandler:
             sanitized_file_name = os.path.basename(payload._file_name)
             self._file_name = sanitized_file_name
             file_path = os.path.join(client_dir, self._file_name)
-            while True:
+            
+            if payload._packet_number == 1:
                 with self._db_lock:
-                    print(f"Client ID: {self._client_id.hex()}, file name: {self._file_name}")
-                    print(f"Check if file {self._file_name} already exists: ")
-                    if self._file_db_manager.file_exists(self._client_id, self._file_name):
-                        print("File does exist. Overwriting it.")
-                        # If it exists, delete the old entry and file
-                        
-                        self._file_db_manager.delete_file(self._client_id, self._file_name)
-                        if os.path.exists(file_path):
-                            os.remove(file_path)
-                            print(f"Deleted previous file with same name.")
-                    else:
-                        print(f"{self._file_name} does not exist. Adding it:")
-
-                # Step 3: Open the file for writing (append mode if it already exists)
-                with open(file_path, 'ab') as file:  # 'ab' mode to append binary data
-                    # Step 4: Write the message content to the file
-                    file.write(payload._message_content)  # Write the current packet content
-
-                # Step 5: Check if this is the last packet
-                if payload._packet_number == payload._total_packets:
-                    print(f"Received all packets for file: {self._file_name}")
-                    break 
-                    # Step 6: Update the file metadata in the database
-                else:
-                    print(f"Received packet {payload._packet_number} of {payload._total_packets} for file {self._file_name}.")
-                    
-            with self._db_lock:
-                self._file_db_manager.add_file(self._client_id, payload._file_name, file_path, verified=False)
-            print(f"File {payload._file_name} has been successfully saved and added to the database.")
+                        print(f"Client ID: {self._client_id.hex()}, file name: {self._file_name}")
+                        print(f"Check if file {self._file_name} already exists: ")
+                        if self._file_db_manager.file_exists(self._client_id, self._file_name):
+                            print("File does exist. Overwriting it.")
+                            # If it exists, delete the old entry and file
+                            
+                            self._file_db_manager.delete_file(self._client_id, self._file_name)
+                            if os.path.exists(file_path):
+                                os.remove(file_path)
+                                print(f"Deleted previous file with same name.")
+                        else:
+                            print(f"{self._file_name} does not exist. Adding it:")
                 
-            # Step 7: Decrypt the entire file
+            # Step 3: Open the file for writing (append mode if it already exists)
+            with open(file_path, 'ab') as file:  # 'ab' mode to append binary data
+                # Step 4: Write the message content to the file
+                file.write(payload._message_content)  # Write the current packet content
+
+            # Step 5: Check if this is the last packet
+            if payload._packet_number == payload._total_packets:
+                print(f"Received all packets for file: {self._file_name}") 
+                self.finalize_file(file_path)
+                # Step 6: Update the file metadata in the database
+            else:
+                print(f"Received packet {payload._packet_number} of {payload._total_packets} for file {self._file_name}.")    
+            
+        except Exception as e:
+            print(f"Exception occurred while handling file send: {e}")
+            self.send_general_error()
+
+    def finalize_file(self, file_path):
+        try:
+            with self._db_lock:
+                self._file_db_manager.add_file(self._client_id, self._file_name, file_path, verified=False)
+            print(f"File {self._file_name} has been successfully saved and added to the database.")
+                    
+                # Step 7: Decrypt the entire file
             with open(file_path, 'rb') as file:
                 encrypted_data = file.read()
             print(f"Decrypting data for: {self._file_name}")
             decrypted_data = crypto.aes.decrypt(encrypted_data, self._aes_key)
 
-            # Step 8: Write the decrypted data back to the file or another file as needed
+                # Step 8: Write the decrypted data back to the file or another file as needed
             print("Writing decrypted data back to file.")
             with open(file_path, 'wb') as file:  # Overwrite the file with decrypted data
                 file.write(decrypted_data)
 
-            # Step 9: Calculate checksum
+                # Step 9: Calculate checksum
             print("Calculating checksum.")
             checksum_info = crypto.checksum.readfile(file_path)
             checksum_str, content_size_str, filename = checksum_info.split('\t')
 
-            # Convert the values from string to integers
+                # Convert the values from string to integers
             checksum = int(checksum_str)  # Convert checksum to int
             content_size = len(encrypted_data)  # Convert content size to int
-            
+                
             response_payload = FileOkPayload(self._client_id, content_size, self._file_name.ljust(NAME_SIZE, '\0'), checksum)
             response_header = ResponseHeader(SERVER_VERSION, ResponseCode.FILE_OK, CLIENT_ID_SIZE + NAME_SIZE + 4 + 4)
             response_packet = Packet(response_header, response_payload)
             self._client_socket.send(response_packet.serialize())
 
         except Exception as e:
-            print(f"Exception occurred while handling file send: {e}")
+            print(f"Exception occurred while finalizing file: {e}")
             self.send_general_error()
-
 
     def handle_checksum_ok(self, header : RequestHeader, payload : ChecksumCorrectPayload):
         print("Checksum was correct - file validated.")

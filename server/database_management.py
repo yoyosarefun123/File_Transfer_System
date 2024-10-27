@@ -15,7 +15,7 @@ class ClientDBManager:
             cursor = conn.cursor()
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS clients (
-                    client_id TEXT PRIMARY KEY, 
+                    client_id BLOB PRIMARY KEY, 
                     client_name TEXT, 
                     public_key TEXT, 
                     last_seen TIMESTAMP, 
@@ -43,7 +43,7 @@ class ClientDBManager:
                     public_key=excluded.public_key, 
                     last_seen=excluded.last_seen, 
                     aes_key=excluded.aes_key;
-            ''', (client_id, client_name, public_key, datetime.now(), aes_key))
+            ''', (sqlite3.Binary(client_id), client_name, public_key, datetime.now(), aes_key))
             conn.commit()
 
     def update_client_last_seen(self, client_id):
@@ -53,7 +53,7 @@ class ClientDBManager:
                 UPDATE clients
                 SET last_seen = ?
                 WHERE client_id = ?;
-            ''', (datetime.now(), client_id))
+            ''', (datetime.now(), sqlite3.Binary(client_id)))
             conn.commit()
 
     def update_client_public_key(self, client_id, public_key):
@@ -63,7 +63,7 @@ class ClientDBManager:
                 UPDATE clients
                 SET public_key = ?
                 WHERE client_id = ?;
-            ''', (public_key, client_id))
+            ''', (public_key, sqlite3.Binary(client_id)))
             conn.commit()
 
     def update_client_aes_key(self, client_id, aes_key):
@@ -73,15 +73,14 @@ class ClientDBManager:
                 UPDATE clients
                 SET aes_key = ?
                 WHERE client_id = ?;
-            ''', (aes_key, client_id))
+            ''', (aes_key, sqlite3.Binary(client_id)))
             conn.commit()
 
     def get_client(self, client_id):
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
-            cursor.execute('SELECT * FROM clients WHERE client_id = ?', (client_id,))
+            cursor.execute('SELECT * FROM clients WHERE client_id = ?', (sqlite3.Binary(client_id),))
             return cursor.fetchone()
-
 
 class FileDBManager:
     def __init__(self, db_path=FILE_DB):

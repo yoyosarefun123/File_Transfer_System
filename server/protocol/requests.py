@@ -102,10 +102,10 @@ class SendFilePayload(RequestPayload):
 
     @staticmethod
     def deserialize_payload(data: bytes):
-        content_size, = struct.unpack('>I', data[:4])
-        original_file_size, = struct.unpack('>I', data[4:8])
-        packet_number, = struct.unpack('>H', data[8:10])
-        total_packets, = struct.unpack('>H', data[10:12])
+        content_size, = struct.unpack('<I', data[:4])
+        original_file_size, = struct.unpack('<I', data[4:8])
+        packet_number, = struct.unpack('<H', data[8:10])
+        total_packets, = struct.unpack('<H', data[10:12])
         file_name = data[12:12 + NAME_SIZE].decode('utf-8').strip('\x00')
         message_content = data[12 + NAME_SIZE:]
         return SendFilePayload(content_size, original_file_size, packet_number, total_packets, file_name, message_content)
